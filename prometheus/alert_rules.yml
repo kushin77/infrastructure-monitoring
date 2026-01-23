@@ -1,0 +1,67 @@
+groups:
+  - name: datacenter-admin
+    rules:
+      - alert: DatacenterAdminDown
+        expr: up{job="datacenter-admin"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Datacenter Admin API is down"
+          description: "Datacenter Admin API has been down for more than 5 minutes"
+
+      - alert: DatacenterAdminHighErrorRate
+        expr: rate(datacenter_admin_requests_total{status=~"5.."}[5m]) / rate(datacenter_admin_requests_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on Datacenter Admin API"
+          description: "Error rate > 10% for the last 5 minutes"
+
+      - alert: DatacenterAdminAuthFailures
+        expr: increase(datacenter_admin_auth_failures_total[10m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Multiple authentication failures"
+          description: "More than 5 auth failures in the last 10 minutes"
+
+      - alert: DatacenterServiceDown
+        expr: datacenter_admin_service_status == 0
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Datacenter service is down"
+          description: "Service {{ $labels.service }} has been down for 10 minutes"
+
+  - name: system
+    rules:
+      - alert: HighCpuUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 80% for more than 5 minutes"
+
+      - alert: HighMemoryUsage
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 90% for more than 5 minutes"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space"
+          description: "Disk space is below 10% for more than 5 minutes"

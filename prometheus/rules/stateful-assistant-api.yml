@@ -1,0 +1,141 @@
+groups:
+  - name: stateful_assistant_api
+    interval: 15s
+    rules:
+      # High error rate (>5% 5xx errors in last 5 minutes)
+      - alert: StatefulAssistantHighErrorRate
+        expr: |
+          (
+            sum(rate(http_errors_total{error_type="server_error"}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          service: stateful-assistant-api
+        annotations:
+          summary: "High 5xx error rate ({{ $value | humanizePercentage }})"
+          description: "Stateful Assistant API is experiencing {{ $value | humanizePercentage }} server errors in the last 5 minutes"
+
+      # High latency (P95 > 1 second)
+      - alert: StatefulAssistantHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, endpoint)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          service: stateful-assistant-api
+        annotations:
+          summary: "High request latency on {{ $labels.endpoint }}"
+          description: "P95 latency is {{ $value }}s on endpoint {{ $labels.endpoint }}"
+
+      # Request rate spike (>200% increase)
+      - alert: StatefulAssistantRequestSpike
+        expr: |
+          (
+            sum(rate(http_requests_total[5m]))
+            /
+            sum(rate(http_requests_total[5m] offset 1h))
+          ) > 3.0
+        for: 5m
+        labels:
+          severity: warning
+          service: stateful-assistant-api
+        annotations:
+          summary: "Request rate spike detected"
+          description: "Request rate increased by {{ $value | humanizePercentage }} compared to 1 hour ago"
+
+      # Database connection issues
+      - alert: StatefulAssistantDatabaseDown
+        expr: |
+          sum(up{job="stateful-assistant-api"}) == 0
+          or
+          absent(up{job="stateful-assistant-api"})
+        for: 1m
+        labels:
+          severity: critical
+          service: stateful-assistant-api
+        annotations:
+          summary: "Stateful Assistant API is down"
+          description: "No metrics received from Stateful Assistant API in the last minute"
+
+      # High memory usage (>80%)
+      - alert: StatefulAssistantHighMemory
+        expr: |
+          (
+            process_resident_memory_bytes{job="stateful-assistant-api"}
+            /
+            2147483648  # 2GB limit
+          ) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: stateful-assistant-api
+        annotations:
+          summary: "High memory usage ({{ $value | humanizePercentage }})"
+          description: "Memory usage is {{ $value | humanizePercentage }} of 2GB limit"
+
+      # Goroutine leak (>1000 goroutines)
+      - alert: StatefulAssistantGoroutineLeak
+        expr: go_goroutines{job="stateful-assistant-api"} > 1000
+        for: 15m
+        labels:
+          severity: warning
+          service: stateful-assistant-api
+        annotations:
+          summary: "Possible goroutine leak ({{ $value }} goroutines)"
+          description: "Service has {{ $value }} goroutines running for >15 minutes"
+
+      # Panic rate (any panic is critical)
+      - alert: StatefulAssistantPanics
+        expr: |
+          sum(rate(http_errors_total{error_type="panic"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: stateful-assistant-api
+        annotations:
+          summary: "Service panics detected"
+          description: "{{ $value }} panics per second in the last 5 minutes"
+
+      # Cache (Redis) errors
+      - alert: StatefulAssistantCacheErrors
+        expr: |
+          rate(http_errors_total{endpoint=~".*/memory/.*"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: stateful-assistant-api
+        annotations:
+          summary: "High cache error rate"
+          description: "Memory/cache endpoints experiencing {{ $value }} errors per second"
+
+      # Request queue saturation (in-flight requests >500)
+      - alert: StatefulAssistantRequestQueueSaturated
+        expr: http_requests_in_flight{job="stateful-assistant-api"} > 500
+        for: 2m
+        labels:
+          severity: warning
+          service: stateful-assistant-api
+        annotations:
+          summary: "Request queue saturated ({{ $value }} in-flight)"
+          description: "{{ $value }} requests currently being processed (may indicate slow backends)"
+
+      # Authentication failures
+      - alert: StatefulAssistantHighAuthFailures
+        expr: |
+          (
+            sum(rate(http_requests_total{endpoint="/api/v1/auth",status="401"}[5m]))
+            /
+            sum(rate(http_requests_total{endpoint="/api/v1/auth"}[5m]))
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: stateful-assistant-api
+        annotations:
+          summary: "High authentication failure rate ({{ $value | humanizePercentage }})"
+          description: "{{ $value | humanizePercentage }} of authentication attempts failing"

@@ -1,0 +1,23 @@
+{
+  "dashboard": {
+    "title": "Phase 5D Week 2 - Gateway API Detailed",
+    "panels": [
+      {
+        "title": "Downstream Service Health",
+        "targets": [{"expr": "increase(gateway_downstream_unavailable_total[5m])"}],
+        "type": "graph"
+      },
+      {
+        "title": "Rate Limit Status",
+        "targets": [{"expr": "rate(gateway_rate_limit_exceeded_total[5m])"}],
+        "type": "graph"
+      },
+      {
+        "title": "Cache Hit Ratio",
+        "targets": [{"expr": "rate(gateway_cache_hits_total[5m]) / rate(gateway_cache_requests_total[5m])"}],
+        "type": "gauge"
+      }
+    ],
+    "refresh": "30s"
+  }
+}

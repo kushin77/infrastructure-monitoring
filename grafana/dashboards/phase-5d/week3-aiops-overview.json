@@ -1,0 +1,28 @@
+{
+  "dashboard": {
+    "title": "Phase 5D Week 3 - AIOps Engine Overview",
+    "panels": [
+      {
+        "title": "Service Status",
+        "targets": [{"expr": "up{job=\"aiops-engine\"}"}],
+        "type": "stat"
+      },
+      {
+        "title": "Model Accuracy",
+        "targets": [{"expr": "aiops_anomaly_detection_accuracy"}],
+        "type": "gauge"
+      },
+      {
+        "title": "Inference Latency (P95)",
+        "targets": [{"expr": "histogram_quantile(0.95, rate(aiops_model_serving_latency_seconds_bucket[5m]))"}],
+        "type": "graph"
+      },
+      {
+        "title": "GPU Memory Usage",
+        "targets": [{"expr": "aiops_gpu_memory_used_bytes / aiops_gpu_memory_total_bytes"}],
+        "type": "gauge"
+      }
+    ],
+    "refresh": "30s"
+  }
+}

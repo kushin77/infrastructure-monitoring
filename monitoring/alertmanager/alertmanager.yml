@@ -1,0 +1,268 @@
+# Phase 16: Alertmanager Configuration
+# Intelligent alert routing and grouping for SLO violations and performance alerts
+#
+# Routing Logic:
+# 1. Group alerts by severity and service (reduces alert fatigue)
+# 2. Critical alerts: Immediate PagerDuty escalation
+# 3. Warning alerts: Slack #alerts channel
+# 4. Info alerts: Email and Slack #monitoring channel
+#
+# Alert Grouping Rules:
+# - Match alerts by: severity, slo_name, service
+# - Wait 10s before sending grouped alerts (allow related alerts to batch)
+# - Repeat every 4h for unresolved alerts
+
+global:
+  # Global SMTP settings for email notifications
+  resolve_timeout: 5m
+  slack_api_url: '${SLACK_WEBHOOK_URL}'
+  pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
+
+  # SMTP configuration for email alerts
+  smtp_smarthost: 'smtp.elevatediq.local:25'
+  smtp_from: 'alertmanager@elevatediq.com'
+  smtp_auth_username: '${SMTP_USERNAME}'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+
+# Route tree - determines where alerts are sent and how they're grouped
+route:
+  receiver: 'default'
+  group_by: ['severity', 'slo', 'service']
+  group_wait: 10s      # Wait 10s before sending group
+  group_interval: 5m   # Min time between sending alerts from same group
+  repeat_interval: 4h  # Re-send unresolved alerts every 4 hours
+
+  # Route critical alerts to PagerDuty immediately
+  routes:
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+      group_by: ['slo', 'service']
+      group_wait: 0s    # No wait for critical alerts
+      group_interval: 30s
+      repeat_interval: 1h
+      continue: false
+
+    # Route SLO violation alerts to PagerDuty
+    - match_re:
+        alertname: '^SLO.*'
+        severity: 'critical|warning'
+      receiver: 'pagerduty-slo'
+      group_by: ['slo', 'service']
+      group_wait: 5s
+      group_interval: 2m
+      repeat_interval: 2h
+      continue: false
+
+    # Route warning-level alerts to Slack
+    - match:
+        severity: warning
+      receiver: 'slack-alerts'
+      group_by: ['slo', 'service']
+      group_wait: 30s
+      group_interval: 10m
+      repeat_interval: 6h
+      continue: false
+
+    # Route info-level and anomaly alerts
+    - match:
+        severity: info
+      receiver: 'slack-monitoring'
+      group_by: ['service']
+      group_wait: 60s
+      group_interval: 30m
+      repeat_interval: 24h
+      continue: false
+
+    # Route anomaly detection alerts
+    - match_re:
+        type: 'anomaly'
+      receiver: 'slack-monitoring'
+      group_by: ['type', 'service']
+      group_wait: 60s
+      group_interval: 30m
+
+    # Route infrastructure alerts
+    - match_re:
+        service: 'monitoring'
+      receiver: 'pagerduty-infrastructure'
+      group_wait: 10s
+      group_interval: 5m
+
+# Inhibition rules - suppress alerts when related alerts fire
+inhibit_rules:
+  # Inhibit "ErrorBudgetBurnRateSlow" if "ErrorBudgetBurnRateFast" is already firing
+  # (don't send slow burn alert if immediate crisis is happening)
+  - source_match:
+      alertname: 'ErrorBudgetBurnRateFast-.*'
+      severity: critical
+    target_match:
+      alertname: 'ErrorBudgetBurnRateSlow-.*'
+    equal: ['slo']
+
+  # Inhibit "ErrorBudgetRunningLow" if SLO is already violated
+  - source_match:
+      alertname: 'SLOViolation-.*'
+      severity: critical
+    target_match:
+      alertname: 'ErrorBudgetRunningLow-.*'
+    equal: ['slo']
+
+  # Inhibit latency degradation warnings if SLO violation is active
+  - source_match:
+      alertname: 'SLOViolation-APILatencyP99'
+      severity: critical
+    target_match:
+      alertname: 'APILatencyP99Degradation'
+      severity: warning
+    equal: ['slo']
+
+  # Inhibit error rate elevated warning if SLO is violated
+  - source_match:
+      alertname: 'SLOViolation-ErrorRate'
+      severity: critical
+    target_match:
+      alertname: 'ErrorRateElevated'
+      severity: warning
+    equal: ['slo']
+
+  # Inhibit critical error spike if already in SLO violation
+  - source_match:
+      alertname: 'SLOViolation-ErrorRate'
+      severity: critical
+    target_match:
+      alertname: 'CriticalErrorSpike'
+      severity: critical
+    equal: ['service']
+
+# Receivers - define where alerts are sent
+receivers:
+  # Default receiver (fallback)
+  - name: 'default'
+    slack_configs:
+      - channel: '#alerts'
+        title: '{{ .GroupLabels.severity | toUpper }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+
+  # Critical PagerDuty routing - immediate escalation
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - routing_key: '${PAGERDUTY_CRITICAL_KEY}'
+        description: '{{ .GroupLabels.slo }}: {{ .Alerts.Firing | len }} critical alerts'
+        details:
+          firing: '{{ template "pagerduty.default.instances" .Alerts.Firing }}'
+        client: 'Prometheus Alertmanager'
+        client_url: '{{ .GroupLabels.grafana_dashboard }}'
+        severity: 'critical'
+    slack_configs:
+      - channel: '#critical-incidents'
+        title: '🚨 CRITICAL: {{ .GroupLabels.slo }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}\nAction: {{ .Annotations.action }}\n{{ end }}'
+        send_resolved: true
+        color: 'danger'
+
+  # SLO-specific PagerDuty routing
+  - name: 'pagerduty-slo'
+    pagerduty_configs:
+      - routing_key: '${PAGERDUTY_SLO_KEY}'
+        description: '{{ .GroupLabels.slo }} Alert'
+        details:
+          summary: '{{ index .Alerts 0 | .Annotations.summary }}'
+          runbook: '{{ index .Alerts 0 | .Annotations.runbook }}'
+        client_url: '{{ index .Alerts 0 | .Annotations.dashboard }}'
+    slack_configs:
+      - channel: '#slo-violations'
+        title: '⚠️  {{ .GroupLabels.severity | toUpper }}: {{ .GroupLabels.slo }}'
+        text: |
+          {{ range .Alerts }}{{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Runbook: {{ .Annotations.runbook }}
+          {{ end }}
+        send_resolved: true
+        color: '{{ if eq .Status "firing" }}warning{{ else }}good{{ end }}'
+        actions:
+          - type: button
+            text: 'View Dashboard'
+            url: '{{ index .Alerts 0 | .Annotations.dashboard }}'
+          - type: button
+            text: 'Runbook'
+            url: '{{ index .Alerts 0 | .Annotations.runbook }}'
+
+  # Infrastructure/monitoring system alerts
+  - name: 'pagerduty-infrastructure'
+    pagerduty_configs:
+      - routing_key: '${PAGERDUTY_INFRASTRUCTURE_KEY}'
+        description: 'Monitoring Infrastructure Issue'
+        severity: 'error'
+    slack_configs:
+      - channel: '#infrastructure'
+        title: '🔧 {{ .GroupLabels.service | toUpper }}: {{ index .Alerts 0 | .Annotations.summary }}'
+        color: 'danger'
+
+  # Slack alerts channel - for warning-level alerts
+  - name: 'slack-alerts'
+    slack_configs:
+      - channel: '#alerts'
+        title: '⚠️  {{ .GroupLabels.severity | toUpper }}: {{ .GroupLabels.slo }}'
+        text: |
+          {{ range .Alerts }}
+          *{{ .Labels.alertname }}*
+          {{ .Annotations.summary }}
+          {{ if .Annotations.description }}Description: {{ .Annotations.description }}{{ end }}
+          {{ if .Annotations.action }}Action: {{ .Annotations.action }}{{ end }}
+          {{ end }}
+        send_resolved: true
+        color: 'warning'
+        thumb_url: 'https://www.elevatediq.com/logo.png'
+        footer: 'ElevatedIQ Monitoring'
+
+  # Slack monitoring channel - for info and anomaly alerts
+  - name: 'slack-monitoring'
+    slack_configs:
+      - channel: '#monitoring'
+        title: 'ℹ️  {{ .GroupLabels.service }}: {{ index .Alerts 0 | .Annotations.summary }}'
+        text: |
+          {{ range .Alerts }}
+          {{ .Annotations.description }}
+          {{ if .Annotations.runbook }}[Runbook]({{ .Annotations.runbook }}){{ end }}
+          {{ end }}
+        send_resolved: true
+        color: '#36a64f'
+        mrkdwn: true
+
+  # Email notifications for critical SLO violations
+  - name: 'email-critical'
+    email_configs:
+      - to: '${ON_CALL_EMAIL}'
+        from: 'alertmanager@elevatediq.com'
+        smarthost: 'smtp.elevatediq.local:25'
+        auth_username: '${SMTP_USERNAME}'
+        auth_password: '${SMTP_PASSWORD}'
+        headers:
+          Subject: '[CRITICAL] SLO Violation: {{ .GroupLabels.slo }}'
+        html: |
+          <h2>Critical SLO Violation</h2>
+          <p><strong>SLO:</strong> {{ .GroupLabels.slo }}</p>
+          <p><strong>Service:</strong> {{ .GroupLabels.service }}</p>
+          {{ range .Alerts }}
+          <p><strong>{{ .Labels.alertname }}</strong></p>
+          <p>{{ .Annotations.summary }}</p>
+          <p>{{ .Annotations.description }}</p>
+          {{ if .Annotations.runbook }}<p><a href="{{ .Annotations.runbook }}">Runbook</a></p>{{ end }}
+          {{ end }}
+          <p>Status: {{ .Status }}</p>
+
+  # Webhook for custom integrations
+  - name: 'webhook'
+    webhook_configs:
+      - url: '${WEBHOOK_URL}/alerts'
+        send_resolved: true
+        http_sd_configs:
+          - url: 'http://sd.elevatediq.com/api/v1/alerts/webhook-targets'
+            refresh_interval: 5m
+
+# Templates for formatting notifications
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

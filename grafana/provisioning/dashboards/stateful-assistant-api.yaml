@@ -1,0 +1,18 @@
+apiVersion: 1
+
+providers:
+  - name: 'Stateful Assistant API Dashboards'
+    orgId: 1
+    folder: 'Services'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+
+dashboards:
+  - name: 'Stateful Assistant API'
+    uid: 'stateful-assistant-api'
+    file: /etc/grafana/provisioning/dashboards/stateful-assistant-api.json
+    orgId: 1
+    folder: 'Services'

@@ -1,0 +1,340 @@
+# Phase 16: Prometheus Alert Rules for SLO & Performance Monitoring
+# These rules define conditions for alerting on SLO violations, performance degradation, and anomalies
+#
+# Alert Severity Levels:
+# - critical: Immediate action required, impacts users/revenue
+# - warning: Attention needed, potential impact if unresolved
+# - info: Informational, useful for trend analysis
+
+groups:
+  - name: slo.alerts
+    interval: 30s
+    rules:
+
+      # ==================== API AVAILABILITY ALERTS ====================
+      # Target: 99.95% availability (21.6 minute budget per 30 days)
+
+      - alert: SLOViolation-APIAvailability
+        expr: slo:api_availability:compliance == 0
+        for: 10m
+        labels:
+          severity: critical
+          slo: "API Availability"
+          service: "api"
+        annotations:
+          summary: "API Availability SLO violation detected"
+          description: "API Availability SLO (99.95%) violated. Current compliance: {{ $value | humanizePercentage }}. Immediate action required."
+          runbook: "https://wiki.elevatediq.com/runbooks/api-availability-violation"
+          dashboard: "https://grafana.elevatediq.com/d/slo-dashboard"
+
+      - alert: ErrorBudgetBurnRateFast-APIAvailability
+        expr: slo:api_availability:burn_rate_fast > 5
+        for: 5m
+        labels:
+          severity: critical
+          slo: "API Availability"
+          service: "api"
+        annotations:
+          summary: "API Availability error budget burning critically fast"
+          description: "API Availability error budget is being consumed at {{ $value | humanize }}x the expected rate (1-hour window). At this rate, monthly budget will be exhausted in {{ div 720 $value | humanizeDuration }}."
+          runbook: "https://wiki.elevatediq.com/runbooks/high-burn-rate-api"
+          action: "Investigate current errors, rollback if necessary"
+
+      - alert: ErrorBudgetBurnRateSlow-APIAvailability
+        expr: slo:api_availability:burn_rate_slow > 1
+        for: 30m
+        labels:
+          severity: warning
+          slo: "API Availability"
+          service: "api"
+        annotations:
+          summary: "API Availability error budget unsustainable (30-day view)"
+          description: "API Availability error budget is being consumed at {{ $value | humanize }}x the expected rate over 30 days. SLO will be violated if this continues."
+          runbook: "https://wiki.elevatediq.com/runbooks/slow-burn-rate-api"
+          action: "Schedule improvements, monitor closely"
+
+      - alert: ErrorBudgetRunningLow-APIAvailability
+        expr: slo:api_availability:budget_remaining < 10
+        for: 1h
+        labels:
+          severity: warning
+          slo: "API Availability"
+          service: "api"
+        annotations:
+          summary: "API Availability error budget critically low"
+          description: "Only {{ $value | humanize }}% of monthly error budget remaining for API Availability (99.95% SLO). Be cautious with deployments."
+          runbook: "https://wiki.elevatediq.com/runbooks/low-budget"
+          action: "Pause non-critical changes, focus on stability"
+
+      - alert: ErrorBudgetCriticallyLow-APIAvailability
+        expr: slo:api_availability:budget_remaining < 5
+        for: 30m
+        labels:
+          severity: critical
+          slo: "API Availability"
+          service: "api"
+        annotations:
+          summary: "API Availability error budget exhaustion imminent"
+          description: "Only {{ $value | humanize }}% of monthly error budget remains. One incident away from SLO violation."
+          runbook: "https://wiki.elevatediq.com/runbooks/critical-budget"
+          action: "Halt deployments, focus entirely on reliability"
+
+      # ==================== API LATENCY ALERTS ====================
+      # Target: 99% of requests < 200ms (100.8 minute budget per 7 days)
+
+      - alert: SLOViolation-APILatencyP99
+        expr: slo:api_latency_p99:compliance == 0
+        for: 5m
+        labels:
+          severity: critical
+          slo: "API Latency P99"
+          service: "api"
+        annotations:
+          summary: "API Latency P99 SLO violation"
+          description: "API P99 latency exceeded 200ms target. Current P99: {{ $value | humanize }}ms"
+          runbook: "https://wiki.elevatediq.com/runbooks/high-latency"
+          action: "Check database performance, scale API servers"
+
+      - alert: APILatencyP99Degradation
+        expr: slo:http_request_duration_ms:p99 > 150
+        for: 10m
+        labels:
+          severity: warning
+          slo: "API Latency P99"
+          service: "api"
+        annotations:
+          summary: "API P99 latency approaching SLO threshold"
+          description: "API P99 latency is {{ $value | humanize }}ms (approaching 200ms limit). Monitor closely."
+          runbook: "https://wiki.elevatediq.com/runbooks/latency-degradation"
+          action: "Check query performance, review recent deployments"
+
+      - alert: APILatencyP95Degradation
+        expr: slo:http_request_duration_ms:p95 > 120
+        for: 10m
+        labels:
+          severity: info
+          slo: "API Latency P95"
+          service: "api"
+        annotations:
+          summary: "API P95 latency elevated"
+          description: "API P95 latency is {{ $value | humanize }}ms (typical < 100ms)"
+          dashboard: "https://grafana.elevatediq.com/d/performance-dashboard"
+
+      # ==================== DATABASE LATENCY ALERTS ====================
+      # Target: 99% of queries < 100ms (100.8 minute budget per 7 days)
+
+      - alert: SLOViolation-DBLatencyP99
+        expr: slo:db_latency_p99:compliance == 0
+        for: 5m
+        labels:
+          severity: critical
+          slo: "Database Latency P99"
+          service: "database"
+        annotations:
+          summary: "Database Latency P99 SLO violation"
+          description: "Database P99 query latency exceeded 100ms. Current P99: {{ $value | humanize }}ms"
+          runbook: "https://wiki.elevatediq.com/runbooks/db-latency-violation"
+          action: "Review slow query log, analyze execution plans"
+
+      - alert: DBLatencyP99Degradation
+        expr: slo:db_query_duration_ms:p99 > 80
+        for: 15m
+        labels:
+          severity: warning
+          slo: "Database Latency P99"
+          service: "database"
+        annotations:
+          summary: "Database P99 latency elevated"
+          description: "Database P99 latency is {{ $value | humanize }}ms (approaching 100ms limit)"
+          runbook: "https://wiki.elevatediq.com/runbooks/db-latency-degradation"
+          action: "Check for missing indexes, long transactions"
+
+      # ==================== CACHE PERFORMANCE ALERTS ====================
+      # Target: 85%+ cache hit rate over 24 hours
+
+      - alert: CacheHitRateBelow Target
+        expr: slo:cache_hit_rate:error_rate > 15
+        for: 30m
+        labels:
+          severity: warning
+          slo: "Cache Hit Rate"
+          service: "cache"
+        annotations:
+          summary: "Cache hit rate below 85% target"
+          description: "Cache hit rate is {{ humanize (100 - $value) }}% (target: 85%). Cache misses causing increased latency."
+          runbook: "https://wiki.elevatediq.com/runbooks/low-cache-hit-rate"
+          action: "Increase cache TTL, analyze miss patterns, add pre-population"
+
+      - alert: CacheHighMissRate
+        expr: slo:cache_hit_rate:error_rate > 25
+        for: 15m
+        labels:
+          severity: critical
+          slo: "Cache Hit Rate"
+          service: "cache"
+        annotations:
+          summary: "Cache miss rate critically high"
+          description: "Cache hit rate is {{ humanize (100 - $value) }}%. Potential cache invalidation issue or insufficient cache size."
+          runbook: "https://wiki.elevatediq.com/runbooks/cache-failure"
+          action: "Check cache connectivity, restart cache service if needed"
+
+      # ==================== ERROR RATE ALERTS ====================
+      # Target: 99.9% success rate (0.1% error rate) over 24 hours
+
+      - alert: SLOViolation-ErrorRate
+        expr: slo:error_rate:compliance == 0
+        for: 10m
+        labels:
+          severity: critical
+          slo: "Error Rate"
+          service: "api"
+        annotations:
+          summary: "Error Rate SLO violation"
+          description: "Error rate exceeds 0.1% (99.9% SLO). Current: {{ $value | humanizePercentage }}"
+          runbook: "https://wiki.elevatediq.com/runbooks/high-error-rate"
+          action: "Check error logs, identify root cause, rollback if necessary"
+
+      - alert: ErrorRateElevated
+        expr: (sum(rate(errors_total[5m])) / sum(rate(requests_total[5m]))) > 0.001
+        for: 10m
+        labels:
+          severity: warning
+          slo: "Error Rate"
+          service: "api"
+        annotations:
+          summary: "Error rate elevated"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 0.1%). Investigate recent changes."
+          dashboard: "https://grafana.elevatediq.com/d/health-dashboard"
+
+      - alert: CriticalError Spike
+        expr: (rate(errors_total{severity="critical"}[1m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          slo: "Error Rate"
+          service: "api"
+        annotations:
+          summary: "Critical errors detected"
+          description: "Critical errors occurring at {{ $value | humanize }} errors/sec"
+          runbook: "https://wiki.elevatediq.com/runbooks/critical-errors"
+          action: "Immediate investigation required"
+
+      # ==================== ANOMALY DETECTION ALERTS ====================
+
+      - alert: LatencyAnomaly
+        expr: |
+          abs(slo:http_request_duration_ms:p99 - avg_over_time(slo:http_request_duration_ms:p99[7d:1h]))
+          > 3 * stddev_over_time(slo:http_request_duration_ms:p99[7d:1h])
+        for: 10m
+        labels:
+          severity: warning
+          type: "anomaly"
+          service: "api"
+        annotations:
+          summary: "Latency anomaly detected (3-sigma deviation)"
+          description: "API P99 latency {{ $value | humanize }}ms deviates significantly from historical baseline"
+          runbook: "https://wiki.elevatediq.com/runbooks/latency-anomaly"
+
+      - alert: ErrorRateAnomaly
+        expr: |
+          abs((sum(rate(errors_total[5m])) / sum(rate(requests_total[5m])))
+          - avg_over_time((sum(rate(errors_total[5m])) / sum(rate(requests_total[5m])))[7d:1h]))
+          > 3 * stddev_over_time((sum(rate(errors_total[5m])) / sum(rate(requests_total[5m])))[7d:1h])
+        for: 5m
+        labels:
+          severity: warning
+          type: "anomaly"
+          service: "api"
+        annotations:
+          summary: "Error rate anomaly detected (3-sigma deviation)"
+          description: "Error rate deviates significantly from baseline"
+          runbook: "https://wiki.elevatediq.com/runbooks/error-anomaly"
+
+      # ==================== INFRASTRUCTURE ALERTS ====================
+
+      - alert: PrometheusHighMemoryUsage
+        expr: prometheus_tsdb_memory_chunks > 1000000
+        for: 10m
+        labels:
+          severity: warning
+          service: "monitoring"
+        annotations:
+          summary: "Prometheus memory usage high"
+          description: "Prometheus is using {{ $value | humanize }} chunks (threshold: 1M)"
+          action: "Review retention settings, increase memory"
+
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: "monitoring"
+        annotations:
+          summary: "Prometheus scraping failed"
+          description: "Prometheus monitoring is down - SLO metrics unavailable"
+          action: "Restart Prometheus service"
+
+      - alert: AlertmanagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: "monitoring"
+        annotations:
+          summary: "Alertmanager is down"
+          description: "Alert routing is unavailable - incidents may not be routed correctly"
+          action: "Restart Alertmanager"
+
+      # ==================== SLO SUMMARY ALERTS ====================
+
+      - alert: MultipleSOLsViolated
+        expr: |
+          count(slo_compliance == 0) >= 2
+        for: 10m
+        labels:
+          severity: critical
+          type: "multi-slo"
+        annotations:
+          summary: "Multiple SLOs violated simultaneously"
+          description: "{{ $value | humanize }} SLOs are currently violated. This indicates a systemic issue."
+          runbook: "https://wiki.elevatediq.com/runbooks/multi-slo-violation"
+          action: "Page on-call engineer, begin incident response"
+
+      - alert: ErrorBudgetStatusDegraded
+        expr: |
+          count(slo_budget_remaining < 20) >= 2
+        for: 1h
+        labels:
+          severity: warning
+          type: "budget-health"
+        annotations:
+          summary: "Multiple SLOs have low error budgets"
+          description: "{{ $value | humanize }} SLOs have < 20% error budget remaining"
+          action: "Review recent deployments, prepare rollback procedures"
+
+  - name: slo.recording_alerts
+    interval: 30s
+    rules:
+      # Alert on stale SLO metrics (no updates for 5 minutes)
+      - alert: SLOMetricsStale
+        expr: time() - slo_last_update_timestamp_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+          service: "monitoring"
+        annotations:
+          summary: "SLO metrics stale"
+          description: "SLO metrics for {{ $labels.slo_name }} haven't been updated in 5 minutes"
+          action: "Check metrics collection, verify Prometheus scrape job"
+
+      # Alert if SLO target calculation appears incorrect
+      - alert: SLOConfigurationError
+        expr: slo_target < 50 or slo_target > 100
+        for: 10m
+        labels:
+          severity: warning
+          service: "monitoring"
+        annotations:
+          summary: "Invalid SLO configuration detected"
+          description: "SLO {{ $labels.slo_name }} has invalid target: {{ $value }}%"
+          action: "Review SLO configuration"

@@ -1,0 +1,204 @@
+x-common-labels:
+  labels: &id001
+    org.elevatediq.project: elevatediq
+    org.elevatediq.component: monitoring
+    org.elevatediq.managed-by: docker-compose
+    org.elevatediq.version: v2.48.0
+services:
+  prometheus:
+    labels: *id001
+    image: prom/prometheus:v2.48.0
+    container_name: elevatediq-prometheus
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: '2.0'
+        reservations:
+          memory: 512m
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    - --storage.tsdb.path=/prometheus
+    - --web.console.libraries=/usr/share/prometheus/console_libraries
+    - --web.console.templates=/usr/share/prometheus/consoles
+    - --web.enable-lifecycle
+    - --storage.tsdb.retention.time=30d
+    ports:
+    - 9090:9090
+    volumes:
+    - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    - ./prometheus/rules:/etc/prometheus/rules:ro
+    - prometheus-data:/prometheus
+    networks:
+    - elevatediq-net
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - --quiet
+      - --tries=1
+      - --spider
+      - http://localhost:9090/-/healthy
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  grafana:
+    labels: *id001
+    image: grafana/grafana:10.2.2
+    container_name: elevatediq-grafana
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: '1.0'
+        reservations:
+          memory: 256m
+    ports:
+    - 3000:3000
+    environment:
+    - GF_SECURITY_ADMIN_PASSWORD=${ELEVATEDIQ_GRAFANA_PASSWORD:-admin}
+    - GF_USERS_ALLOW_SIGN_UP=false
+    - GF_SERVER_ROOT_URL=${ELEVATEDIQ_GRAFANA_URL:-http://localhost:3000}
+    - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+    - grafana-data:/var/lib/grafana
+    - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+    - elevatediq-net
+    restart: unless-stopped
+    depends_on:
+    - prometheus
+    healthcheck:
+      test:
+      - CMD
+      - wget
+      - --quiet
+      - --tries=1
+      - --spider
+      - http://localhost:3000/api/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  alertmanager:
+    labels: *id001
+    image: prom/alertmanager:v0.26.0
+    container_name: elevatediq-alertmanager
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.5'
+        reservations:
+          memory: 128m
+    command:
+    - --config.file=/etc/alertmanager/config.yml
+    - --storage.path=/alertmanager
+    ports:
+    - 9093:9093
+    volumes:
+    - ./alertmanager/config.yml:/etc/alertmanager/config.yml:ro
+    - alertmanager-data:/alertmanager
+    networks:
+    - elevatediq-net
+    restart: unless-stopped
+  node-exporter:
+    labels: *id001
+    image: prom/node-exporter:v1.7.0
+    container_name: elevatediq-node-exporter
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.5'
+        reservations:
+          memory: 64m
+    command:
+    - --path.procfs=/host/proc
+    - --path.sysfs=/host/sys
+    - --path.rootfs=/rootfs
+    - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    ports:
+    - 9100:9100
+    volumes:
+    - /proc:/host/proc:ro
+    - /sys:/host/sys:ro
+    - /:/rootfs:ro
+    networks:
+    - elevatediq-net
+    restart: unless-stopped
+  postgres-exporter:
+    labels: *id001
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: elevatediq-postgres-exporter
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.5'
+        reservations:
+          memory: 64m
+    environment:
+    - DATA_SOURCE_NAME=postgresql://${ELEVATEDIQ_DATABASE_USER:-analytics_user}:${ELEVATEDIQ_DATABASE_PASSWORD:-analytics_pass}@elevatediq-postgres:5432/${ELEVATEDIQ_DATABASE_NAME:-elevatediq_analytics}?sslmode=disable
+    ports:
+    - 9187:9187
+    networks:
+    - elevatediq-net
+    restart: unless-stopped
+  cadvisor:
+    labels: *id001
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: elevatediq-cadvisor
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '1.0'
+        reservations:
+          memory: 128m
+    ports:
+    - 8080:8080
+    volumes:
+    - /:/rootfs:ro
+    - /var/run:/var/run:rw
+    - /sys:/sys:ro
+    - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+    - elevatediq-net
+    restart: unless-stopped
+    privileged: true
+  blackbox-exporter:
+    labels: *id001
+    image: prom/blackbox-exporter:v0.24.0
+    container_name: elevatediq-blackbox-exporter
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.5'
+        reservations:
+          memory: 64m
+    command:
+    - --config.file=/etc/blackbox/config.yml
+    ports:
+    - 9115:9115
+    volumes:
+    - ./blackbox/config.yml:/etc/blackbox/config.yml:ro
+    networks:
+    - elevatediq-net
+    restart: unless-stopped
+volumes:
+  prometheus-data:
+    driver: local
+    name: elevatediq_prometheus_data
+  grafana-data:
+    driver: local
+    name: elevatediq_grafana_data
+  alertmanager-data:
+    driver: local
+    name: elevatediq_alertmanager_data
+networks:
+  elevatediq-net:
+    external: true
+    name: elevatediq_network

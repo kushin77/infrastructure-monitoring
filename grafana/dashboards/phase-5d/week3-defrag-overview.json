@@ -1,0 +1,28 @@
+{
+  "dashboard": {
+    "title": "Phase 5D Week 3 - Defrag Portal Overview",
+    "panels": [
+      {
+        "title": "Portal Status",
+        "targets": [{"expr": "up{job=\"defrag-portal\"}"}],
+        "type": "stat"
+      },
+      {
+        "title": "Error Rate",
+        "targets": [{"expr": "rate(defrag_errors_total[5m])"}],
+        "type": "graph"
+      },
+      {
+        "title": "Intervention Queue Depth",
+        "targets": [{"expr": "defrag_intervention_queue_depth"}],
+        "type": "stat"
+      },
+      {
+        "title": "Feedback Accuracy",
+        "targets": [{"expr": "defrag_feedback_accuracy_score"}],
+        "type": "gauge"
+      }
+    ],
+    "refresh": "30s"
+  }
+}

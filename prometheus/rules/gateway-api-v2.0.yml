@@ -1,0 +1,129 @@
+groups:
+  - name: gateway-api-v2.0
+    interval: 30s
+    rules:
+      # HTTP Status Errors (5xx)
+      - alert: GatewayAPIHighErrorRate
+        expr: |
+          rate(gateway_api_http_requests_total{status=~"5.."}[5m]) > 0.001
+        for: 2m
+        labels:
+          severity: critical
+          component: gateway-api
+          version: v2.0.0
+        annotations:
+          summary: "Gateway API: High 5xx error rate"
+          description: "{{ $labels.instance }} experiencing {{ $value | humanizePercentage }} 5xx errors"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-errors"
+
+      # Latency P95 Threshold
+      - alert: GatewayAPIHighLatency
+        expr: |
+          histogram_quantile(0.95, rate(gateway_api_http_request_duration_seconds_bucket[5m])) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+          component: gateway-api
+          version: v2.0.0
+        annotations:
+          summary: "Gateway API: P95 latency > 500ms"
+          description: "{{ $labels.instance }} P95 latency is {{ $value | humanizeDuration }}"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-latency"
+
+      # Circuit Breaker Open
+      - alert: GatewayAPICircuitBreakerOpen
+        expr: |
+          gateway_api_circuit_breaker_state{state="open"} > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: gateway-api
+          version: v2.0.0
+        annotations:
+          summary: "Gateway API: Circuit breaker {{ $labels.name }} OPEN"
+          description: "Circuit breaker {{ $labels.name }} has been open for >5 minutes"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/circuit-breaker-recovery"
+
+      # Memory Usage High
+      - alert: GatewayAPIHighMemoryUsage
+        expr: |
+          process_resident_memory_bytes > 500000000
+        for: 2m
+        labels:
+          severity: warning
+          component: gateway-api
+          version: v2.0.0
+        annotations:
+          summary: "Gateway API: Memory usage > 500MB"
+          description: "{{ $labels.instance }} using {{ $value | humanize }}B memory"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-memory"
+
+      # Rate Limit Exceeded (increasing trend)
+      - alert: GatewayAPIRateLimitExceeded
+        expr: |
+          rate(gateway_api_rate_limit_exceeded_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          component: gateway-api
+          version: v2.0.0
+        annotations:
+          summary: "Gateway API: Rate limit exceeded on {{ $labels.endpoint }}"
+          description: "Endpoint {{ $labels.endpoint }} exceeding rate limit ({{ $value }}/sec)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/rate-limiting"
+
+      # Database Connection Pool Exhausted
+      - alert: GatewayAPIConnectionPoolExhausted
+        expr: |
+          gateway_api_db_connections_active >= gateway_api_db_connections_max
+        for: 2m
+        labels:
+          severity: critical
+          component: gateway-api
+          version: v2.0.0
+        annotations:
+          summary: "Gateway API: Database connection pool exhausted"
+          description: "{{ $labels.instance }} connection pool at capacity"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/connection-pool"
+
+      # Health Check Failing
+      - alert: GatewayAPIHealthCheckFailing
+        expr: |
+          gateway_api_health_check_status{check="database"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: gateway-api
+          version: v2.0.0
+        annotations:
+          summary: "Gateway API: Health check {{ $labels.check }} FAILING"
+          description: "{{ $labels.instance }} health check {{ $labels.check }} is failing"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/health-check-recovery"
+
+      # Pod Restart Rate High
+      - alert: GatewayAPIPodRestartingFrequently
+        expr: |
+          rate(kube_pod_container_status_restarts_total{pod=~"gateway-api-.*"}[1h]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: gateway-api
+          version: v2.0.0
+        annotations:
+          summary: "Gateway API pod {{ $labels.pod }} restarting frequently"
+          description: "Pod restarting {{ $value | humanizePercentage }} of the time"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/pod-restart-investigation"
+
+      # Service Down (all replicas unavailable)
+      - alert: GatewayAPIServiceDown
+        expr: |
+          up{job="gateway-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: gateway-api
+          version: v2.0.0
+        annotations:
+          summary: "Gateway API service DOWN"
+          description: "Gateway API is completely unavailable"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/service-recovery"

@@ -1,0 +1,380 @@
+---
+# SLO Alerting Rules - ElevatedIQ Platform
+# Multi-window, multi-burn-rate alerting per Google SRE best practices
+
+groups:
+  # Fast Burn Alerts (2% error budget in 1 hour = exhausted in 2 days)
+  - name: slo_fast_burn
+    interval: 30s
+    rules:
+      # Analytics API - Fast Burn
+      - alert: SLOFastBurnAnalyticsAPI
+        expr: |
+          (
+            slo:analytics_api:error_budget:burn_rate_1h > 14.4
+            and
+            slo:analytics_api:error_budget:burn_rate_5m > 14.4
+          )
+        for: 2m
+        labels:
+          severity: critical
+          component: analytics-api
+          slo_type: availability
+          burn_rate: fast
+        annotations:
+          summary: "Analytics API error budget will be exhausted in <2 days"
+          description: |
+            Analytics API is consuming error budget at 14.4x normal rate.
+            Current burn rate: {{ $value | humanize }}x
+            Error budget remaining: {{ query "slo:analytics_api:error_budget:remaining_ratio * 100" | first | value | humanizePercentage }}
+            At this rate, budget will be exhausted in <48 hours.
+            ACTION: Investigate immediately, consider stopping deployments.
+          dashboard: "https://elevatediq.ai/grafana/d/slo-tracking"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/SLO-Fast-Burn-Response"
+
+      # DevOps Oracle - Fast Burn
+      - alert: SLOFastBurnDevOpsOracle
+        expr: |
+          (
+            slo:devops_oracle:error_budget:burn_rate_1h > 14.4
+            and
+            slo:devops_oracle:error_budget:burn_rate_5m > 14.4
+          )
+        for: 2m
+        labels:
+          severity: critical
+          component: devops-oracle
+          slo_type: availability
+          burn_rate: fast
+        annotations:
+          summary: "DevOps Oracle error budget will be exhausted in <2 days"
+          description: |
+            DevOps Oracle is consuming error budget at 14.4x normal rate.
+            Current burn rate: {{ $value | humanize }}x
+            Error budget remaining: {{ query "slo:devops_oracle:error_budget:remaining_ratio * 100" | first | value | humanizePercentage }}
+            ACTION: Investigate immediately, consider rollback.
+          dashboard: "https://elevatediq.ai/grafana/d/slo-tracking"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/SLO-Fast-Burn-Response"
+
+  # Slow Burn Alerts (5% error budget in 6 hours = exhausted in 7 days)
+  - name: slo_slow_burn
+    interval: 1m
+    rules:
+      # Analytics API - Slow Burn
+      - alert: SLOSlowBurnAnalyticsAPI
+        expr: |
+          (
+            slo:analytics_api:error_budget:burn_rate_6h > 6
+            and
+            slo:analytics_api:error_budget:burn_rate_1h > 6
+          )
+        for: 15m
+        labels:
+          severity: warning
+          component: analytics-api
+          slo_type: availability
+          burn_rate: slow
+        annotations:
+          summary: "Analytics API error budget will be exhausted in <7 days"
+          description: |
+            Analytics API is consuming error budget at 6x normal rate.
+            Current burn rate: {{ $value | humanize }}x
+            Error budget remaining: {{ query "slo:analytics_api:error_budget:remaining_ratio * 100" | first | value | humanizePercentage }}
+            At this rate, budget will be exhausted in <7 days.
+            ACTION: Review recent changes, increase monitoring.
+          dashboard: "https://elevatediq.ai/grafana/d/slo-tracking"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/SLO-Slow-Burn-Response"
+
+      # DevOps Oracle - Slow Burn
+      - alert: SLOSlowBurnDevOpsOracle
+        expr: |
+          (
+            slo:devops_oracle:error_budget:burn_rate_6h > 6
+            and
+            slo:devops_oracle:error_budget:burn_rate_1h > 6
+          )
+        for: 15m
+        labels:
+          severity: warning
+          component: devops-oracle
+          slo_type: availability
+          burn_rate: slow
+        annotations:
+          summary: "DevOps Oracle error budget will be exhausted in <7 days"
+          description: |
+            DevOps Oracle is consuming error budget at 6x normal rate.
+            Current burn rate: {{ $value | humanize }}x
+            Error budget remaining: {{ query "slo:devops_oracle:error_budget:remaining_ratio * 100" | first | value | humanizePercentage }}
+            ACTION: Review recent changes, increase monitoring.
+          dashboard: "https://elevatediq.ai/grafana/d/slo-tracking"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/SLO-Slow-Burn-Response"
+
+  # Error Budget Exhaustion Alerts
+  - name: slo_budget_exhaustion
+    interval: 5m
+    rules:
+      # Critical: <10% budget remaining
+      - alert: SLOErrorBudgetCritical
+        expr: |
+          slo:analytics_api:error_budget:remaining_ratio < 0.1
+          or
+          slo:devops_oracle:error_budget:remaining_ratio < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          slo_type: error_budget
+        annotations:
+          summary: "SLO error budget critically low (<10% remaining)"
+          description: |
+            Service {{ $labels.job }} has <10% error budget remaining.
+            Budget remaining: {{ $value | humanizePercentage }}
+            ACTION: Emergency mode - stop all feature work, focus on reliability.
+          dashboard: "https://elevatediq.ai/grafana/d/slo-tracking"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/SLO-Budget-Emergency"
+
+      # Warning: <25% budget remaining
+      - alert: SLOErrorBudgetWarning
+        expr: |
+          slo:analytics_api:error_budget:remaining_ratio < 0.25
+          or
+          slo:devops_oracle:error_budget:remaining_ratio < 0.25
+        for: 10m
+        labels:
+          severity: warning
+          slo_type: error_budget
+        annotations:
+          summary: "SLO error budget low (<25% remaining)"
+          description: |
+            Service {{ $labels.job }} has <25% error budget remaining.
+            Budget remaining: {{ $value | humanizePercentage }}
+            ACTION: Freeze non-critical deployments, review reliability.
+          dashboard: "https://elevatediq.ai/grafana/d/slo-tracking"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/SLO-Budget-Low"
+
+      # Error budget exhausted
+      - alert: SLOErrorBudgetExhausted
+        expr: |
+          slo:analytics_api:error_budget:remaining_ratio <= 0
+          or
+          slo:devops_oracle:error_budget:remaining_ratio <= 0
+        for: 1m
+        labels:
+          severity: critical
+          slo_type: error_budget
+          page: "true"
+        annotations:
+          summary: "SLO error budget EXHAUSTED - SLA breach"
+          description: |
+            Service {{ $labels.job }} has exhausted its monthly error budget.
+            This is an SLA breach requiring executive escalation.
+            Budget remaining: {{ $value | humanizePercentage }}
+            ACTION: Initiate incident response, notify leadership, prepare customer communication.
+          dashboard: "https://elevatediq.ai/grafana/d/slo-tracking"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/SLA-Breach-Response"
+
+  # Latency SLO Alerts
+  - name: slo_latency_breach
+    interval: 1m
+    rules:
+      # Analytics API P95 Latency
+      - alert: SLOLatencyBreachAnalyticsAPIp95
+        expr: |
+          slo:analytics_api:latency:p95_5m > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          component: analytics-api
+          slo_type: latency
+          percentile: p95
+        annotations:
+          summary: "Analytics API P95 latency exceeds 200ms SLO"
+          description: |
+            Analytics API P95 latency is {{ $value | humanizeDuration }}, exceeding 200ms target.
+            This impacts user experience and consumes error budget.
+            ACTION: Check for slow queries, high load, or resource constraints.
+          dashboard: "https://elevatediq.ai/grafana/d/slo-tracking"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Latency-Troubleshooting"
+
+      # Analytics API P99 Latency
+      - alert: SLOLatencyBreachAnalyticsAPIp99
+        expr: |
+          slo:analytics_api:latency:p99_5m > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: analytics-api
+          slo_type: latency
+          percentile: p99
+        annotations:
+          summary: "Analytics API P99 latency exceeds 500ms SLO"
+          description: |
+            Analytics API P99 latency is {{ $value | humanizeDuration }}, exceeding 500ms target.
+            ACTION: Investigate tail latency causes (database, external APIs, GC).
+          dashboard: "https://elevatediq.ai/grafana/d/slo-tracking"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Tail-Latency-Investigation"
+
+      # DevOps Oracle Latency
+      - alert: SLOLatencyBreachDevOpsOraclep95
+        expr: |
+          slo:devops_oracle:latency:p95_5m > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: devops-oracle
+          slo_type: latency
+          percentile: p95
+        annotations:
+          summary: "DevOps Oracle P95 latency exceeds 500ms SLO"
+          description: |
+            DevOps Oracle P95 latency is {{ $value | humanizeDuration }}, exceeding 500ms target.
+            ACTION: Check RCA processing, database queries, incident load.
+          dashboard: "https://elevatediq.ai/grafana/d/slo-tracking"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Latency-Troubleshooting"
+
+  # Database SLO Alerts
+  - name: slo_database
+    interval: 1m
+    rules:
+      # Connection pool saturation
+      - alert: SLODatabaseConnectionPoolSaturation
+        expr: |
+          slo:postgres:connection_pool:utilization > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: postgresql
+          slo_type: capacity
+        annotations:
+          summary: "PostgreSQL connection pool >80% utilized"
+          description: |
+            Database connection pool is {{ $value | humanizePercentage }} utilized.
+            Risk of connection exhaustion and service degradation.
+            ACTION: Investigate connection leaks, consider increasing pool size.
+          dashboard: "https://elevatediq.ai/grafana/d/database-overview"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Database-Connection-Pool-Tuning"
+
+      # Slow query rate
+      - alert: SLODatabaseSlowQueryRate
+        expr: |
+          slo:postgres:slow_queries:rate_5m > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          component: postgresql
+          slo_type: performance
+        annotations:
+          summary: "PostgreSQL slow query rate exceeds 1%"
+          description: |
+            {{ $value | humanizePercentage }} of queries are taking >1 second.
+            This impacts API latency SLOs.
+            ACTION: Identify slow queries, add indexes, optimize.
+          dashboard: "https://elevatediq.ai/grafana/d/database-overview"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Slow-Query-Investigation"
+
+      # Replication lag
+      - alert: SLODatabaseReplicationLag
+        expr: |
+          slo:postgres:replication:lag_seconds > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: postgresql
+          slo_type: replication
+        annotations:
+          summary: "PostgreSQL replication lag >10 seconds"
+          description: |
+            Database replication is lagging by {{ $value | humanizeDuration }}.
+            Risk of stale reads and failover issues.
+            ACTION: Check replica health, network connectivity, write load.
+          dashboard: "https://elevatediq.ai/grafana/d/database-overview"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Replication-Lag-Troubleshooting"
+
+  # Incident Metrics SLO Alerts
+  - name: slo_incident_metrics
+    interval: 5m
+    rules:
+      # MTTR exceeds target
+      - alert: SLOMTTRExceedsTarget
+        expr: |
+          slo:incidents:mttr:p1_24h > 1800
+        for: 10m
+        labels:
+          severity: warning
+          component: incident-response
+          slo_type: mttr
+        annotations:
+          summary: "P1 incident MTTR exceeds 30 minute target"
+          description: |
+            Average P1 incident resolution time is {{ $value | humanizeDuration }}, exceeding 30 minute target.
+            This indicates incident response process issues.
+            ACTION: Review recent incidents, identify bottlenecks, improve runbooks.
+          dashboard: "https://elevatediq.ai/grafana/d/incident-metrics"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/MTTR-Improvement"
+
+      # High incident rate
+      - alert: SLOHighIncidentRate
+        expr: |
+          slo:incidents:rate:total_1h > (5 / 3600)
+        for: 30m
+        labels:
+          severity: warning
+          component: platform
+          slo_type: stability
+        annotations:
+          summary: "Incident rate exceeds 5 per hour"
+          description: |
+            Platform is generating incidents at {{ $value | humanize }} per second.
+            This indicates systemic reliability issues.
+            ACTION: Identify recurring issues, implement preventive measures.
+          dashboard: "https://elevatediq.ai/grafana/d/incident-metrics"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/High-Incident-Rate-Response"
+
+  # SLO Compliance Alerts
+  - name: slo_compliance
+    interval: 5m
+    rules:
+      # Overall compliance score
+      - alert: SLOComplianceScoreLow
+        expr: |
+          slo:platform:compliance:overall_score < 85
+        for: 30m
+        labels:
+          severity: warning
+          slo_type: compliance
+        annotations:
+          summary: "Platform SLO compliance score below 85%"
+          description: |
+            Overall SLO compliance is {{ $value | humanizePercentage }}.
+            Multiple services are missing their reliability targets.
+            ACTION: Review all SLO breaches, prioritize improvements.
+          dashboard: "https://elevatediq.ai/grafana/d/slo-tracking"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/SLO-Compliance-Review"
+
+      # Multiple SLO breaches
+      - alert: SLOMultipleBreaches
+        expr: |
+          count(
+            slo:analytics_api:compliance:availability == 0
+            or
+            slo:analytics_api:compliance:latency_p95 == 0
+            or
+            slo:analytics_api:compliance:error_rate == 0
+            or
+            slo:devops_oracle:compliance:availability == 0
+            or
+            slo:devops_oracle:compliance:latency_p95 == 0
+            or
+            slo:devops_oracle:compliance:error_rate == 0
+          ) > 2
+        for: 15m
+        labels:
+          severity: critical
+          slo_type: compliance
+        annotations:
+          summary: "Multiple simultaneous SLO breaches detected"
+          description: |
+            {{ $value }} different SLOs are currently being breached.
+            This indicates a platform-wide reliability issue.
+            ACTION: Initiate major incident response, engage leadership.
+          dashboard: "https://elevatediq.ai/grafana/d/slo-tracking"
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Platform-Wide-Incident"

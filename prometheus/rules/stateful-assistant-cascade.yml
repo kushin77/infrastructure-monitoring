@@ -1,0 +1,33 @@
+groups:
+  - name: stateful-assistant-cascade
+    interval: 30s
+    rules:
+      - alert: CascadeProviderFailuresHigh
+        expr: increase(stateful_cascade_provider_failures_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          team: ai
+        annotations:
+          summary: "High provider failures in stateful assistant cascade"
+          description: "Provider '{{ $labels.provider }}' has >10 failures over the last 5 minutes. Investigate upstream availability, credentials, or rate limiting."
+
+      - alert: CascadeRetriesHigh
+        expr: increase(stateful_cascade_retries_total[5m]) > 50
+        for: 2m
+        labels:
+          severity: warning
+          team: ai
+        annotations:
+          summary: "Excessive retries in stateful assistant cascade"
+          description: "Provider '{{ $labels.provider }}' required >50 retries in the last 5 minutes. Check latency, network issues, and backoff settings."
+
+      - alert: CascadeRequestSpike
+        expr: rate(stateful_cascade_requests_total[5m]) > 100
+        for: 1m
+        labels:
+          severity: info
+          team: ai
+        annotations:
+          summary: "Request spike detected in cascade"
+          description: "Requests to provider '{{ $labels.provider }}' exceed 100 req/min over 5 minutes. Validate autoscaling and quotas."

@@ -1,0 +1,188 @@
+groups:
+  - name: infrastructure
+    interval: 30s
+    rules:
+      # Service Availability Alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} at {{ $labels.instance }} has been down for more than 2 minutes"
+
+      - alert: ServiceHighErrorRate
+        expr: |
+          (
+            rate(requests_total{status=~"5.."}[5m])
+            /
+            rate(requests_total[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "High error rate for {{ $labels.job }}"
+          description: "Error rate is {{ $value | humanizePercentage }} for {{ $labels.job }}"
+
+      # Resource Alerts
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            node_memory_MemAvailable_bytes
+            /
+            node_memory_MemTotal_bytes
+          ) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Available memory is only {{ $value | humanizePercentage }}"
+
+      - alert: HighCPUUsage
+        expr: |
+          (
+            1 - avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance)
+          ) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | humanizePercentage }}"
+
+      - alert: DiskSpaceLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs"}
+            /
+            node_filesystem_size_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs"}
+          ) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Available disk space is only {{ $value | humanizePercentage }} on {{ $labels.device }}"
+
+      # Prometheus Alerts
+      - alert: PrometheusHighMemoryUsage
+        expr: |
+          process_resident_memory_bytes{job="prometheus"}
+          /
+          1024 / 1024 / 1024 > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus high memory usage"
+          description: "Prometheus is using {{ $value | humanize }}GB of memory"
+
+      - alert: PrometheusConfigReloadFailures
+        expr: increase(prometheus_config_last_reload_success_timestamp_seconds[15m]) == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus config reload failed"
+          description: "Prometheus has not reloaded its configuration for more than 5 minutes"
+
+      # Instance Status Server Alerts
+      - alert: InstanceStatusServerUnhealthy
+        expr: up{job="instance-status-server"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: "instance-status-server"
+        annotations:
+          summary: "Instance Status Server is unhealthy"
+          description: "Instance Status Server at {{ $labels.instance }} is not responding"
+
+      # Security Agent Alerts
+      - alert: SecurityAgentUnhealthy
+        expr: up{job="security-agent"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: "security-agent"
+        annotations:
+          summary: "Security Agent is unhealthy"
+          description: "Security Agent at {{ $labels.instance }} is not responding to health checks"
+
+      - alert: ComplianceScanFailed
+        expr: security_scan_failures_total > 5
+        for: 10m
+        labels:
+          severity: warning
+          component: "security-agent"
+        annotations:
+          summary: "Security compliance scan failed"
+          description: "Security scan has failed {{ $value }} times in the last 10 minutes"
+
+      # Metrics Server Alerts
+      - alert: MetricsServerHighLatency
+        expr: |
+          histogram_quantile(0.99, rate(metrics_request_duration_seconds_bucket[5m]))
+          > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: "metrics-server"
+        annotations:
+          summary: "Metrics Server has high latency"
+          description: "99th percentile latency is {{ $value | humanizeDuration }}"
+
+      # Deadletter Queue Alerts
+      - alert: DeadletterQueueBacklog
+        expr: deadletter_queue_depth > 1000
+        for: 10m
+        labels:
+          severity: warning
+          component: "deadletter-ui"
+        annotations:
+          summary: "High deadletter queue backlog"
+          description: "Deadletter queue has {{ $value }} messages pending"
+
+      # Wake Server Alerts
+      - alert: WakeServerHighFailureRate
+        expr: |
+          (
+            rate(wake_requests_failed_total[5m])
+            /
+            rate(wake_requests_total[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: "wake-server"
+        annotations:
+          summary: "Wake Server high failure rate"
+          description: "Wake Server failure rate is {{ $value | humanizePercentage }}"
+
+  - name: business
+    interval: 1m
+    rules:
+      - alert: SLAViolation
+        expr: |
+          sla_compliance_percentage < 99.5
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SLA violation detected"
+          description: "Service compliance is {{ $value | humanizePercentage }}"
+
+      - alert: UnusualErrorGrowth
+        expr: |
+          rate(errors_total[5m]) >
+          avg_over_time(rate(errors_total[5m])[1h:5m]) * 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unusual error growth detected"
+          description: "Error rate increased to {{ $value | humanize }} (2x baseline)"

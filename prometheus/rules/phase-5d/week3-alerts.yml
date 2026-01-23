@@ -1,0 +1,438 @@
+# Phase 5D Week 3 Alert Rules - Analytics Service, AIOps Engine, Defrag Portal
+# Total: 39 alerts (Analytics: 12, AIOps: 14, Defrag: 13)
+# Generated: 2025-12-16
+# Format: Prometheus alert_expr + labels + annotations
+
+groups:
+  - name: phase-5d-week3-analytics-service
+    interval: 30s
+    rules:
+      # Analytics Service - 12 alerts
+      - alert: Analytics_Service_Down
+        expr: up{job="analytics"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: analytics
+          phase: 5d-week3
+        annotations:
+          summary: "Analytics Service is down"
+          description: "Analytics unavailable. Metrics collection blocked."
+          runbook_url: "https://dev.elevatediq.ai/docs/runbooks/phase-5d/analytics-recovery.md"
+
+      - alert: Analytics_High_Query_Latency
+        expr: histogram_quantile(0.95, rate(analytics_query_duration_seconds_bucket[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: analytics
+          phase: 5d-week3
+        annotations:
+          summary: "Analytics query latency exceeds 10s (P95)"
+          description: "P95 latency: {{ $value }}s. Check ClickHouse performance and indexes."
+
+      - alert: Analytics_Aggregation_Job_Failed
+        expr: increase(analytics_aggregation_job_failures_total[5m]) > 0
+        for: 3m
+        labels:
+          severity: warning
+          service: analytics
+          phase: 5d-week3
+        annotations:
+          summary: "Analytics aggregation job failed"
+          description: "Periodic aggregation broken. Historical data may be inconsistent."
+
+      - alert: Analytics_Data_Freshness_Lag
+        expr: time() - analytics_data_freshness_timestamp > 3600
+        for: 10m
+        labels:
+          severity: warning
+          service: analytics
+          phase: 5d-week3
+        annotations:
+          summary: "Analytics data >1 hour stale"
+          description: "Lag: {{ $value | humanizeDuration }}. Check ingestion pipeline."
+
+      - alert: Analytics_Database_Storage_High
+        expr: analytics_storage_used_bytes / analytics_storage_limit_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: analytics
+          phase: 5d-week3
+        annotations:
+          summary: "Analytics database storage >85% used"
+          description: "Usage: {{ $value | humanizePercentage }}. Plan capacity expansion."
+
+      - alert: Analytics_ClickHouse_Replication_Lag
+        expr: analytics_clickhouse_replication_lag_seconds > 120
+        for: 5m
+        labels:
+          severity: warning
+          service: analytics
+          phase: 5d-week3
+        annotations:
+          summary: "ClickHouse replication lag >2 minutes"
+          description: "Lag: {{ $value }}s. Check network and replica status."
+
+      - alert: Analytics_Metric_Collection_Errors
+        expr: rate(analytics_metric_errors_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: info
+          service: analytics
+          phase: 5d-week3
+        annotations:
+          summary: "Analytics metric collection errors >10%"
+          description: "Error rate: {{ $value | humanizePercentage }}. Check metric producer clients."
+
+      - alert: Analytics_Memory_Usage_High
+        expr: container_memory_usage_bytes{pod=~"analytics-.*"} / container_spec_memory_limit_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: analytics
+          phase: 5d-week3
+        annotations:
+          summary: "Analytics memory usage >85%"
+          description: "Memory: {{ $value | humanizePercentage }}. Check result cache size."
+
+      - alert: Analytics_CPU_Usage_High
+        expr: rate(container_cpu_usage_seconds_total{pod=~"analytics-.*"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: analytics
+          phase: 5d-week3
+        annotations:
+          summary: "Analytics CPU usage >80%"
+          description: "CPU: {{ $value | humanizePercentage }}. Consider horizontal scaling."
+
+      - alert: Analytics_Report_Generation_Lag
+        expr: time() - analytics_last_report_generation_timestamp > 1800
+        for: 5m
+        labels:
+          severity: info
+          service: analytics
+          phase: 5d-week3
+        annotations:
+          summary: "Analytics report generation >30 min behind"
+          description: "Last report: {{ $value | humanizeDuration }} ago. Check batch scheduler."
+
+      - alert: Analytics_Cost_Calculation_Error
+        expr: increase(analytics_cost_calculation_errors_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: analytics
+          phase: 5d-week3
+        annotations:
+          summary: "Analytics cost calculation errors"
+          description: "FinOps data unreliable. Check cost model and pricing updates."
+
+      - alert: Analytics_Dashboard_Render_Timeout
+        expr: rate(analytics_dashboard_render_timeout_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: info
+          service: analytics
+          phase: 5d-week3
+        annotations:
+          summary: "Analytics dashboard rendering >5% timeout rate"
+          description: "Timeout rate: {{ $value | humanizePercentage }}. Optimize dashboard queries."
+
+  - name: phase-5d-week3-aiops-engine
+    interval: 30s
+    rules:
+      # AIOps Engine - 14 alerts
+      - alert: AIOps_Service_Down
+        expr: up{job="aiops-engine"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps Engine service is down"
+          description: "ML-powered operations unavailable. Anomaly detection offline."
+          runbook_url: "https://dev.elevatediq.ai/docs/runbooks/phase-5d/aiops-recovery.md"
+
+      - alert: AIOps_High_Response_Time
+        expr: histogram_quantile(0.95, rate(aiops_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps Engine response time exceeds 5s (P95)"
+          description: "P95 latency: {{ $value }}s. Check ML model inference time."
+
+      - alert: AIOps_High_Error_Rate
+        expr: rate(aiops_errors_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps Engine error rate >5%"
+          description: "Error rate: {{ $value | humanizePercentage }}. Check model pipeline and data."
+
+      - alert: AIOps_Model_Inference_Failed
+        expr: increase(aiops_model_inference_failures_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps model inference failures"
+          description: "ML model cannot generate predictions. Check GPU memory and model health."
+
+      - alert: AIOps_GPU_Memory_Exhausted
+        expr: aiops_gpu_memory_used_bytes / aiops_gpu_memory_total_bytes > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps GPU memory >95% used"
+          description: "GPU: {{ $value | humanizePercentage }}. Model too large or batch size too high."
+
+      - alert: AIOps_Model_Training_Failed
+        expr: increase(aiops_model_training_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps model training/retraining failed"
+          description: "Model cannot be updated. Predictions based on stale model."
+
+      - alert: AIOps_Anomaly_Detection_Accuracy_Low
+        expr: aiops_anomaly_detection_accuracy < 0.75
+        for: 15m
+        labels:
+          severity: info
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps anomaly detection accuracy <75%"
+          description: "Accuracy: {{ $value | humanizePercentage }}. Consider model retraining."
+
+      - alert: AIOps_Forecast_Error_Rate_High
+        expr: aiops_forecast_mean_absolute_error > 0.3
+        for: 10m
+        labels:
+          severity: info
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps forecast error >30%"
+          description: "MAE: {{ $value }}. Check data quality and trend changes."
+
+      - alert: AIOps_Training_Data_Insufficient
+        expr: aiops_training_data_samples < 10000
+        for: 5m
+        labels:
+          severity: warning
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps training data <10k samples"
+          description: "Samples: {{ $value }}. Insufficient data for accurate model."
+
+      - alert: AIOps_Memory_Usage_High
+        expr: container_memory_usage_bytes{pod=~"aiops-engine-.*"} / container_spec_memory_limit_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps Engine memory usage >85%"
+          description: "Memory: {{ $value | humanizePercentage }}. Check model and cache sizes."
+
+      - alert: AIOps_CPU_Usage_High
+        expr: rate(container_cpu_usage_seconds_total{pod=~"aiops-engine-.*"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps Engine CPU usage >80%"
+          description: "CPU: {{ $value | humanizePercentage }}. Consider horizontal scaling."
+
+      - alert: AIOps_Model_Serving_Latency_High
+        expr: histogram_quantile(0.99, rate(aiops_model_serving_latency_seconds_bucket[5m])) > 3
+        for: 5m
+        labels:
+          severity: warning
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps model serving latency >3s (P99)"
+          description: "P99 latency: {{ $value }}s. Optimize model or add inference replicas."
+
+      - alert: AIOps_Prediction_Confidence_Low
+        expr: avg(aiops_prediction_confidence) < 0.6
+        for: 10m
+        labels:
+          severity: info
+          service: aiops-engine
+          phase: 5d-week3
+        annotations:
+          summary: "AIOps prediction confidence <60%"
+          description: "Avg confidence: {{ $value }}. Model uncertainty high."
+
+  - name: phase-5d-week3-defrag-portal
+    interval: 30s
+    rules:
+      # Defrag Portal - 13 alerts
+      - alert: DefragPortal_Service_Down
+        expr: up{job="defrag-portal"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal service is down"
+          description: "Policy enforcement portal unavailable. Feedback loop blocked."
+          runbook_url: "https://dev.elevatediq.ai/docs/runbooks/phase-5d/defrag-portal-recovery.md"
+
+      - alert: DefragPortal_High_Response_Time
+        expr: histogram_quantile(0.95, rate(defrag_request_duration_seconds_bucket[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal response time exceeds 1.0s (P95)"
+          description: "P95 latency: {{ $value }}s. Check database and Redis performance."
+
+      - alert: DefragPortal_High_Error_Rate
+        expr: rate(defrag_errors_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal error rate >5%"
+          description: "Error rate: {{ $value | humanizePercentage }}. Check policy enforcement engine."
+
+      - alert: DefragPortal_Redis_Connection_Failed
+        expr: increase(defrag_redis_connection_errors_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal Redis connection failures"
+          description: "Cannot connect to Redis for pub/sub. Real-time updates blocked."
+
+      - alert: DefragPortal_Pub_Sub_Lag
+        expr: defrag_pubsub_lag_seconds > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal pub/sub lag >5 seconds"
+          description: "Lag: {{ $value }}s. Analysts seeing stale intervention data."
+
+      - alert: DefragPortal_Policy_File_Parse_Error
+        expr: increase(defrag_policy_file_parse_errors_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal policy file parsing errors"
+          description: "Cannot load policy YAML. Check policy file schema."
+
+      - alert: DefragPortal_Intervention_Queue_Growing
+        expr: defrag_intervention_queue_depth > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal intervention queue >1000 items"
+          description: "Queue depth: {{ $value }}. Analysts falling behind on feedback."
+
+      - alert: DefragPortal_Feedback_Loss
+        expr: increase(defrag_feedback_write_errors_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal feedback data loss"
+          description: "Cannot persist analyst feedback. Check database connectivity."
+
+      - alert: DefragPortal_Analyst_Idle_Too_Long
+        expr: defrag_analyst_idle_duration_seconds > 3600
+        for: 5m
+        labels:
+          severity: info
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal analyst session idle >1 hour"
+          description: "Idle: {{ $value }}s. Consider session timeout."
+
+      - alert: DefragPortal_Memory_Usage_High
+        expr: container_memory_usage_bytes{pod=~"defrag-portal-.*"} / container_spec_memory_limit_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal memory usage >85%"
+          description: "Memory: {{ $value | humanizePercentage }}. Check session cache."
+
+      - alert: DefragPortal_CPU_Usage_High
+        expr: rate(container_cpu_usage_seconds_total{pod=~"defrag-portal-.*"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal CPU usage >80%"
+          description: "CPU: {{ $value | humanizePercentage }}. Consider horizontal scaling."
+
+      - alert: DefragPortal_Policy_Enforcement_Lag
+        expr: time() - defrag_last_enforcement_timestamp > 300
+        for: 5m
+        labels:
+          severity: warning
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal policy enforcement >5 min behind"
+          description: "Lag: {{ $value }}s. Check policy engine performance."
+
+      - alert: DefragPortal_Feedback_Accuracy_Low
+        expr: defrag_feedback_accuracy_score < 0.75
+        for: 15m
+        labels:
+          severity: info
+          service: defrag-portal
+          phase: 5d-week3
+        annotations:
+          summary: "Defrag Portal feedback accuracy <75%"
+          description: "Accuracy: {{ $value | humanizePercentage }}. Analysts may need retraining."

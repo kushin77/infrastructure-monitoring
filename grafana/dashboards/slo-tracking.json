@@ -1,0 +1,559 @@
+{
+  "dashboard": {
+    "title": "SLO Tracking Dashboard",
+    "uid": "slo-tracking",
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "tags": ["slo", "reliability", "sla"],
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Analytics API - 30-Day Availability",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "slo:analytics_api:availability:ratio_rate30d * 100",
+            "legendFormat": "Availability %",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 3,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 99.5, "color": "yellow"},
+                {"value": 99.9, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "type": "gauge",
+        "title": "Analytics API - Error Budget Remaining",
+        "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "slo:analytics_api:error_budget:remaining_ratio * 100",
+            "legendFormat": "Budget %",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 10, "color": "orange"},
+                {"value": 25, "color": "yellow"},
+                {"value": 50, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Time to Budget Exhaustion",
+        "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "slo:analytics_api:error_budget:remaining_seconds / 86400",
+            "legendFormat": "Days",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background",
+          "textMode": "value"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "days",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 2, "color": "orange"},
+                {"value": 7, "color": "yellow"},
+                {"value": 15, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Platform Compliance Score",
+        "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "slo:platform:compliance:overall_score",
+            "legendFormat": "Score",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background",
+          "textMode": "value_and_name"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 85, "color": "yellow"},
+                {"value": 95, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "type": "timeseries",
+        "title": "Availability Trend (24h)",
+        "gridPos": {"x": 0, "y": 4, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "slo:analytics_api:availability:ratio_rate5m * 100",
+            "legendFormat": "Analytics API",
+            "refId": "A"
+          },
+          {
+            "expr": "slo:devops_oracle:availability:ratio_rate5m * 100",
+            "legendFormat": "DevOps Oracle",
+            "refId": "B"
+          },
+          {
+            "expr": "99.9",
+            "legendFormat": "SLO Target (99.9%)",
+            "refId": "C"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 99,
+            "max": 100,
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 10
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "SLO Target (99.9%)"},
+              "properties": [
+                {"id": "custom.lineStyle", "value": {"fill": "dash"}},
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 6,
+        "type": "timeseries",
+        "title": "Error Budget Burn Rate",
+        "gridPos": {"x": 12, "y": 4, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "slo:analytics_api:error_budget:burn_rate_1h",
+            "legendFormat": "Analytics API (1h)",
+            "refId": "A"
+          },
+          {
+            "expr": "slo:devops_oracle:error_budget:burn_rate_1h",
+            "legendFormat": "DevOps Oracle (1h)",
+            "refId": "B"
+          },
+          {
+            "expr": "14.4",
+            "legendFormat": "Fast Burn Threshold (14.4x)",
+            "refId": "C"
+          },
+          {
+            "expr": "6",
+            "legendFormat": "Slow Burn Threshold (6x)",
+            "refId": "D"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 10
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byRegexp", "options": ".*Threshold.*"},
+              "properties": [
+                {"id": "custom.lineStyle", "value": {"fill": "dash"}},
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 7,
+        "type": "timeseries",
+        "title": "Latency P95/P99 vs SLO",
+        "gridPos": {"x": 0, "y": 10, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "slo:analytics_api:latency:p95_5m * 1000",
+            "legendFormat": "Analytics API P95",
+            "refId": "A"
+          },
+          {
+            "expr": "slo:analytics_api:latency:p99_5m * 1000",
+            "legendFormat": "Analytics API P99",
+            "refId": "B"
+          },
+          {
+            "expr": "200",
+            "legendFormat": "P95 SLO (200ms)",
+            "refId": "C"
+          },
+          {
+            "expr": "500",
+            "legendFormat": "P99 SLO (500ms)",
+            "refId": "D"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 10
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byRegexp", "options": ".*SLO.*"},
+              "properties": [
+                {"id": "custom.lineStyle", "value": {"fill": "dash"}},
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 8,
+        "type": "timeseries",
+        "title": "Error Rate (5xx) vs SLO",
+        "gridPos": {"x": 12, "y": 10, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "slo:analytics_api:error_rate:5xx_5m * 100",
+            "legendFormat": "Analytics API",
+            "refId": "A"
+          },
+          {
+            "expr": "slo:devops_oracle:error_rate:5xx_5m * 100",
+            "legendFormat": "DevOps Oracle",
+            "refId": "B"
+          },
+          {
+            "expr": "0.1",
+            "legendFormat": "SLO Target (0.1%)",
+            "refId": "C"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 10
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "SLO Target (0.1%)"},
+              "properties": [
+                {"id": "custom.lineStyle", "value": {"fill": "dash"}},
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 9,
+        "type": "table",
+        "title": "SLO Compliance Matrix",
+        "gridPos": {"x": 0, "y": 16, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "slo:analytics_api:compliance:availability",
+            "legendFormat": "Analytics API - Availability",
+            "refId": "A",
+            "instant": true
+          },
+          {
+            "expr": "slo:analytics_api:compliance:latency_p95",
+            "legendFormat": "Analytics API - Latency P95",
+            "refId": "B",
+            "instant": true
+          },
+          {
+            "expr": "slo:analytics_api:compliance:error_rate",
+            "legendFormat": "Analytics API - Error Rate",
+            "refId": "C",
+            "instant": true
+          },
+          {
+            "expr": "slo:devops_oracle:compliance:availability",
+            "legendFormat": "DevOps Oracle - Availability",
+            "refId": "D",
+            "instant": true
+          },
+          {
+            "expr": "slo:devops_oracle:compliance:latency_p95",
+            "legendFormat": "DevOps Oracle - Latency P95",
+            "refId": "E",
+            "instant": true
+          },
+          {
+            "expr": "slo:devops_oracle:compliance:error_rate",
+            "legendFormat": "DevOps Oracle - Error Rate",
+            "refId": "F",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "seriesToColumns",
+            "options": {"byField": "Time"}
+          }
+        ],
+        "options": {
+          "showHeader": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "displayMode": "color-background"
+            },
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": {"text": "❌ BREACH", "color": "red"},
+                  "1": {"text": "✅ COMPLIANT", "color": "green"}
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": 10,
+        "type": "stat",
+        "title": "Database Connection Pool",
+        "gridPos": {"x": 12, "y": 16, "w": 6, "h": 3},
+        "targets": [
+          {
+            "expr": "slo:postgres:connection_pool:utilization * 100",
+            "legendFormat": "Utilization",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 70, "color": "yellow"},
+                {"value": 80, "color": "orange"},
+                {"value": 95, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 11,
+        "type": "stat",
+        "title": "P1 Incident MTTR",
+        "gridPos": {"x": 18, "y": 16, "w": 6, "h": 3},
+        "targets": [
+          {
+            "expr": "slo:incidents:mttr:p1_24h / 60",
+            "legendFormat": "MTTR",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "m",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 30, "color": "yellow"},
+                {"value": 60, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 12,
+        "type": "timeseries",
+        "title": "Throughput vs Capacity",
+        "gridPos": {"x": 12, "y": 19, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "slo:analytics_api:throughput:rps_5m",
+            "legendFormat": "Analytics API RPS",
+            "refId": "A"
+          },
+          {
+            "expr": "slo:analytics_api:throughput:capacity_utilization * 1000",
+            "legendFormat": "Capacity Target (1000 RPS)",
+            "refId": "B"
+          }
+        ],
+        "options": {
+          "legend": {"displayMode": "list", "placement": "bottom"}
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2,
+              "fillOpacity": 10
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Capacity Target (1000 RPS)"},
+              "properties": [
+                {"id": "custom.lineStyle", "value": {"fill": "dash"}},
+                {"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "name": "Deployments",
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "changes(deployment_timestamp[1m]) > 0",
+          "iconColor": "blue",
+          "tagKeys": "service,version"
+        },
+        {
+          "name": "Incidents",
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "incidents_total",
+          "iconColor": "red",
+          "tagKeys": "severity,service"
+        }
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "datasource",
+          "type": "datasource",
+          "query": "prometheus",
+          "current": {
+            "value": "Prometheus",
+            "text": "Prometheus"
+          }
+        },
+        {
+          "name": "time_window",
+          "type": "interval",
+          "options": [
+            {"value": "5m", "text": "5 minutes"},
+            {"value": "1h", "text": "1 hour"},
+            {"value": "6h", "text": "6 hours"},
+            {"value": "24h", "text": "24 hours"},
+            {"value": "7d", "text": "7 days"},
+            {"value": "30d", "text": "30 days"}
+          ],
+          "current": {
+            "value": "5m",
+            "text": "5 minutes"
+          }
+        }
+      ]
+    }
+  }
+}

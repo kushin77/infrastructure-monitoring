@@ -1,0 +1,261 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "appsmith",
+    "title": "Appsmith Admin Portal",
+    "tags": ["appsmith", "admin", "portal"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "type": "gauge",
+        "title": "Appsmith Status",
+        "gridPos": {"h": 4, "w": 3, "x": 0, "y": 0},
+        "targets": [{"expr": "up{job=\"appsmith\"}", "legendFormat": "Status"}],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "green", "value": 1}
+              ]
+            },
+            "mappings": [
+              {"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}}},
+              {"type": "value", "options": {"1": {"text": "UP", "color": "green"}}}
+            ],
+            "min": 0,
+            "max": 1
+          }
+        }
+      },
+      {
+        "id": 2,
+        "type": "gauge",
+        "title": "Request Rate (req/min)",
+        "gridPos": {"h": 4, "w": 3, "x": 3, "y": 0},
+        "targets": [{"expr": "rate(appsmith_http_requests_total[5m]) * 60", "legendFormat": "Requests"}],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 500},
+                {"color": "red", "value": 1000}
+              ]
+            },
+            "unit": "reqpm",
+            "min": 0
+          }
+        }
+      },
+      {
+        "id": 3,
+        "type": "gauge",
+        "title": "Error Rate (%)",
+        "gridPos": {"h": 4, "w": 3, "x": 6, "y": 0},
+        "targets": [{"expr": "(rate(appsmith_http_errors_total[5m]) / rate(appsmith_http_requests_total[5m])) * 100", "legendFormat": "Error Rate"}],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 2},
+                {"color": "red", "value": 5}
+              ]
+            },
+            "unit": "percent",
+            "min": 0,
+            "max": 10
+          }
+        }
+      },
+      {
+        "id": 4,
+        "type": "gauge",
+        "title": "P95 Latency (s)",
+        "gridPos": {"h": 4, "w": 3, "x": 9, "y": 0},
+        "targets": [{"expr": "histogram_quantile(0.95, rate(appsmith_http_duration_seconds_bucket[5m]))", "legendFormat": "P95"}],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 3}
+              ]
+            },
+            "unit": "s",
+            "min": 0
+          }
+        }
+      },
+      {
+        "id": 5,
+        "type": "gauge",
+        "title": "OAuth Success Rate (%)",
+        "gridPos": {"h": 4, "w": 3, "x": 12, "y": 0},
+        "targets": [{"expr": "(1 - (rate(appsmith_oauth_failures_total[5m]) / rate(appsmith_oauth_attempts_total[5m]))) * 100", "legendFormat": "Success"}],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 90},
+                {"color": "green", "value": 95}
+              ]
+            },
+            "unit": "percent",
+            "min": 80,
+            "max": 100
+          }
+        }
+      },
+      {
+        "id": 6,
+        "type": "gauge",
+        "title": "Widget Load Success (%)",
+        "gridPos": {"h": 4, "w": 3, "x": 15, "y": 0},
+        "targets": [{"expr": "(1 - (rate(appsmith_widget_load_failures_total[5m]) / rate(appsmith_widget_loads_total[5m]))) * 100", "legendFormat": "Success"}],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 95},
+                {"color": "green", "value": 98}
+              ]
+            },
+            "unit": "percent",
+            "min": 90,
+            "max": 100
+          }
+        }
+      },
+      {
+        "id": 7,
+        "type": "gauge",
+        "title": "MongoDB Connection Pool (%)",
+        "gridPos": {"h": 4, "w": 3, "x": 18, "y": 0},
+        "targets": [{"expr": "(appsmith_mongodb_connections_active / appsmith_mongodb_connections_max) * 100", "legendFormat": "Usage"}],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 90}
+              ]
+            },
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        }
+      },
+      {
+        "id": 8,
+        "type": "gauge",
+        "title": "CPU Usage (%)",
+        "gridPos": {"h": 4, "w": 3, "x": 21, "y": 0},
+        "targets": [{"expr": "rate(process_cpu_seconds_total{job=\"appsmith\"}[5m]) * 100", "legendFormat": "CPU"}],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 80}
+              ]
+            },
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        }
+      },
+      {
+        "id": 9,
+        "type": "timeseries",
+        "title": "Request Rate (req/s)",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {"expr": "rate(appsmith_http_requests_total[5m])", "legendFormat": "Total Requests"},
+          {"expr": "rate(appsmith_http_requests_total{status=~\"2..\"}[5m])", "legendFormat": "2xx Success"},
+          {"expr": "rate(appsmith_http_requests_total{status=~\"5..\"}[5m])", "legendFormat": "5xx Errors"}
+        ],
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right", "calcs": ["last", "mean", "max"]}
+        }
+      },
+      {
+        "id": 10,
+        "type": "timeseries",
+        "title": "Latency Percentiles",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {"expr": "histogram_quantile(0.50, rate(appsmith_http_duration_seconds_bucket[5m]))", "legendFormat": "P50"},
+          {"expr": "histogram_quantile(0.95, rate(appsmith_http_duration_seconds_bucket[5m]))", "legendFormat": "P95"},
+          {"expr": "histogram_quantile(0.99, rate(appsmith_http_duration_seconds_bucket[5m]))", "legendFormat": "P99"}
+        ],
+        "fieldConfig": {
+          "defaults": {"unit": "s"}
+        }
+      },
+      {
+        "id": 11,
+        "type": "timeseries",
+        "title": "OAuth Authentication Rate",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {"expr": "rate(appsmith_oauth_attempts_total[5m])", "legendFormat": "Attempts"},
+          {"expr": "rate(appsmith_oauth_successes_total[5m])", "legendFormat": "Successes"},
+          {"expr": "rate(appsmith_oauth_failures_total[5m])", "legendFormat": "Failures"}
+        ]
+      },
+      {
+        "id": 12,
+        "type": "timeseries",
+        "title": "Widget Operations",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {"expr": "rate(appsmith_widget_loads_total[5m])", "legendFormat": "Widget Loads"},
+          {"expr": "rate(appsmith_widget_load_failures_total[5m])", "legendFormat": "Load Failures"},
+          {"expr": "histogram_quantile(0.95, rate(appsmith_widget_load_duration_seconds_bucket[5m]))", "legendFormat": "P95 Load Time"}
+        ]
+      },
+      {
+        "id": 13,
+        "type": "timeseries",
+        "title": "MongoDB Performance",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "targets": [
+          {"expr": "rate(appsmith_mongodb_queries_total[5m])", "legendFormat": "Queries/sec"},
+          {"expr": "appsmith_mongodb_connections_active", "legendFormat": "Active Connections"},
+          {"expr": "histogram_quantile(0.95, rate(appsmith_mongodb_query_duration_seconds_bucket[5m]))", "legendFormat": "P95 Query Time"}
+        ]
+      },
+      {
+        "id": 14,
+        "type": "timeseries",
+        "title": "Datasource Operations",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+        "targets": [
+          {"expr": "rate(appsmith_datasource_queries_total[5m]) by (datasource)", "legendFormat": "{{ datasource }}"},
+          {"expr": "rate(appsmith_datasource_errors_total[5m]) by (datasource)", "legendFormat": "{{ datasource }} (errors)"}
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,285 @@
+# Phase 16: Prometheus Recording Rules for SLO Tracking
+# These rules calculate error budgets and burn rates for SLO monitoring
+#
+# Recording rules provide pre-computed metrics that dashboards and alerts can use efficiently
+# More info: https://prometheus.io/docs/prometheus/latest/configuration/recording_rules/
+
+groups:
+- name: slo.recording
+  interval: 30s
+  rules:
+
+    # ==================== ERROR RATE CALCULATIONS ====================
+
+    # API Availability: 99.95% SLO (21.6 minute budget per 30 days)
+    - record: slo:api_availability:error_rate
+      expr: |
+        (sum(rate(http_requests_total{job="api",status=~"5.."}[5m])) /
+         sum(rate(http_requests_total{job="api"}[5m]))) * 100
+      labels:
+        slo_name: "API Availability"
+        target: "99.95"
+
+    # API Latency P99: 99% of requests < 200ms over 7 days
+    - record: slo:api_latency_p99:error_rate
+      expr: |
+        (count(http_request_duration_ms{job="api"} > 200) /
+         count(http_request_duration_ms{job="api"})) * 100
+      labels:
+        slo_name: "API Latency P99"
+        target: "99.0"
+
+    # Database Latency P99: 99% of queries < 100ms over 7 days
+    - record: slo:db_latency_p99:error_rate
+      expr: |
+        (count(db_query_duration_ms > 100) /
+         count(db_query_duration_ms)) * 100
+      labels:
+        slo_name: "Database Latency P99"
+        target: "99.0"
+
+    # Cache Hit Rate: 85% minimum over 24 hours
+    - record: slo:cache_hit_rate:error_rate
+      expr: |
+        100 - (sum(rate(cache_misses_total[5m])) /
+               (sum(rate(cache_hits_total[5m])) + sum(rate(cache_misses_total[5m])))) * 100
+      labels:
+        slo_name: "Cache Hit Rate"
+        target: "85.0"
+
+    # Error Rate: 99.9% availability (0.1% error rate) over 24 hours
+    - record: slo:error_rate:error_rate
+      expr: |
+        (sum(rate(errors_total[5m])) /
+         sum(rate(requests_total[5m]))) * 100
+      labels:
+        slo_name: "Error Rate"
+        target: "99.9"
+
+    # ==================== ERROR BUDGET CALCULATIONS ====================
+
+    # API Availability: 30-day error budget consumption
+    # Total budget: 30*24*60*(1-0.9995) = 21.6 minutes
+    - record: slo:api_availability:budget_consumed_ratio
+      expr: |
+        (sum(increase(http_requests_total{job="api",status=~"5.."}[30d])) /
+         sum(increase(http_requests_total{job="api"}[30d])))
+      labels:
+        slo_name: "API Availability"
+        window: "30d"
+        budget_minutes: "21.6"
+
+    # API Latency P99: 7-day error budget consumption
+    # Total budget: 7*24*60*(1-0.99) = 100.8 minutes
+    - record: slo:api_latency_p99:budget_consumed_ratio
+      expr: |
+        (count(increase(http_request_duration_ms{job="api"}[7d] > 200)) /
+         count(increase(http_request_duration_ms{job="api"}[7d])))
+      labels:
+        slo_name: "API Latency P99"
+        window: "7d"
+        budget_minutes: "100.8"
+
+    # Database Latency P99: 7-day error budget consumption
+    # Total budget: 7*24*60*(1-0.99) = 100.8 minutes
+    - record: slo:db_latency_p99:budget_consumed_ratio
+      expr: |
+        (count(increase(db_query_duration_ms[7d] > 100)) /
+         count(increase(db_query_duration_ms[7d])))
+      labels:
+        slo_name: "Database Latency P99"
+        window: "7d"
+        budget_minutes: "100.8"
+
+    # Error Rate: 24-hour error budget consumption
+    # Total budget: 24*60*(1-0.999) = 14.4 minutes
+    - record: slo:error_rate:budget_consumed_ratio
+      expr: |
+        (sum(increase(errors_total[24h])) /
+         sum(increase(requests_total[24h])))
+      labels:
+        slo_name: "Error Rate"
+        window: "24h"
+        budget_minutes: "14.4"
+
+    # ==================== BURN RATE CALCULATIONS ====================
+
+    # Fast burn rate: 1-hour window
+    # Indicates immediate SLO risk if sustained
+    - record: slo:api_availability:burn_rate_fast
+      expr: |
+        (sum(rate(http_requests_total{job="api",status=~"5.."}[1h])) /
+         sum(rate(http_requests_total{job="api"}[1h]))) /
+        (1 - 0.9995)
+      labels:
+        slo_name: "API Availability"
+        burn_rate_window: "1h"
+        severity: "critical"
+
+    - record: slo:api_latency_p99:burn_rate_fast
+      expr: |
+        (count(rate(http_request_duration_ms{job="api"}[1h] > 200)) /
+         count(rate(http_request_duration_ms{job="api"}[1h]))) /
+        (1 - 0.99)
+      labels:
+        slo_name: "API Latency P99"
+        burn_rate_window: "1h"
+        severity: "critical"
+
+    - record: slo:error_rate:burn_rate_fast
+      expr: |
+        (sum(rate(errors_total[1h])) /
+         sum(rate(requests_total[1h]))) /
+        (1 - 0.999)
+      labels:
+        slo_name: "Error Rate"
+        burn_rate_window: "1h"
+        severity: "critical"
+
+    # Slow burn rate: 30-day window
+    # Indicates long-term SLO risk
+    - record: slo:api_availability:burn_rate_slow
+      expr: |
+        (sum(rate(http_requests_total{job="api",status=~"5.."}[30d])) /
+         sum(rate(http_requests_total{job="api"}[30d]))) /
+        (1 - 0.9995)
+      labels:
+        slo_name: "API Availability"
+        burn_rate_window: "30d"
+        severity: "warning"
+
+    - record: slo:api_latency_p99:burn_rate_slow
+      expr: |
+        (sum(rate(http_request_duration_ms{job="api"}[30d] > 200)) /
+         sum(rate(http_request_duration_ms{job="api"}[30d]))) /
+        (1 - 0.99)
+      labels:
+        slo_name: "API Latency P99"
+        burn_rate_window: "30d"
+        severity: "warning"
+
+    - record: slo:error_rate:burn_rate_slow
+      expr: |
+        (sum(rate(errors_total[30d])) /
+         sum(rate(requests_total[30d]))) /
+        (1 - 0.999)
+      labels:
+        slo_name: "Error Rate"
+        burn_rate_window: "30d"
+        severity: "warning"
+
+    # ==================== BUDGET REMAINING CALCULATIONS ====================
+
+    # Calculate percentage of error budget remaining (0-100%)
+    - record: slo:api_availability:budget_remaining
+      expr: |
+        (1 - (sum(increase(http_requests_total{job="api",status=~"5.."}[30d])) /
+              sum(increase(http_requests_total{job="api"}[30d])))) * 100
+      labels:
+        slo_name: "API Availability"
+        window: "30d"
+
+    - record: slo:api_latency_p99:budget_remaining
+      expr: |
+        (1 - (count(increase(http_request_duration_ms{job="api"}[7d] > 200)) /
+              count(increase(http_request_duration_ms{job="api"}[7d])))) * 100
+      labels:
+        slo_name: "API Latency P99"
+        window: "7d"
+
+    - record: slo:error_rate:budget_remaining
+      expr: |
+        (1 - (sum(increase(errors_total[24h])) /
+              sum(increase(requests_total[24h])))) * 100
+      labels:
+        slo_name: "Error Rate"
+        window: "24h"
+
+    # ==================== SLO COMPLIANCE INDICATORS ====================
+
+    # SLO Compliance: 1 if compliant, 0 if violated
+    - record: slo:api_availability:compliance
+      expr: |
+        ((sum(increase(http_requests_total{job="api",status!~"5.."}[30d])) /
+          sum(increase(http_requests_total{job="api"}[30d]))) >= 0.9995)
+      labels:
+        slo_name: "API Availability"
+
+    - record: slo:api_latency_p99:compliance
+      expr: |
+        ((sum(http_request_duration_ms{job="api"}) / count(http_request_duration_ms{job="api"})) <= 200)
+      labels:
+        slo_name: "API Latency P99"
+
+    - record: slo:error_rate:compliance
+      expr: |
+        ((sum(increase(requests_total[24h] != errors_total[24h])) /
+          sum(increase(requests_total[24h]))) >= 0.999)
+      labels:
+        slo_name: "Error Rate"
+
+    # ==================== PERCENTILE CALCULATIONS ====================
+
+    # P99 latency for API endpoints
+    - record: slo:http_request_duration_ms:p99
+      expr: |
+        histogram_quantile(0.99, sum(rate(http_request_duration_ms_bucket{job="api"}[5m])) by (le))
+      labels:
+        job: "api"
+
+    # P95 latency for API endpoints
+    - record: slo:http_request_duration_ms:p95
+      expr: |
+        histogram_quantile(0.95, sum(rate(http_request_duration_ms_bucket{job="api"}[5m])) by (le))
+      labels:
+        job: "api"
+
+    # P50 (median) latency for API endpoints
+    - record: slo:http_request_duration_ms:p50
+      expr: |
+        histogram_quantile(0.50, sum(rate(http_request_duration_ms_bucket{job="api"}[5m])) by (le))
+      labels:
+        job: "api"
+
+    # Database P99 latency
+    - record: slo:db_query_duration_ms:p99
+      expr: |
+        histogram_quantile(0.99, sum(rate(db_query_duration_ms_bucket[5m])) by (le))
+
+    # ==================== ERROR BUDGET ALERTS ====================
+
+    # Immediate alert if budget burn rate is too high (> 5x expected for SLO)
+    - alert: ErrorBudgetBurnRateFast
+      expr: slo:api_availability:burn_rate_fast > 5
+      for: 5m
+      labels:
+        severity: critical
+        slo_name: "API Availability"
+      annotations:
+        summary: "SLO error budget burning rapidly (fast burn rate > 5x)"
+        description: "{{ $labels.slo_name }} is consuming error budget at {{ $value | humanize }}x the expected rate (1-hour window)"
+        runbook: "https://wiki.elevatediq.com/runbooks/high-burn-rate"
+
+    # Warning if budget burn rate indicates SLO will be violated in 30 days
+    - alert: ErrorBudgetBurnRateSlow
+      expr: slo:api_availability:burn_rate_slow > 1
+      for: 30m
+      labels:
+        severity: warning
+        slo_name: "API Availability"
+      annotations:
+        summary: "SLO error budget will be exhausted at current burn rate (slow burn rate)"
+        description: "{{ $labels.slo_name }} is consuming error budget at {{ $value | humanize }}x the expected rate over 30 days"
+        runbook: "https://wiki.elevatediq.com/runbooks/slow-burn-rate"
+
+    # Alert if error budget is < 10% remaining
+    - alert: ErrorBudgetRunningLow
+      expr: slo:api_availability:budget_remaining < 10
+      for: 1h
+      labels:
+        severity: warning
+        slo_name: "API Availability"
+      annotations:
+        summary: "SLO error budget critically low"
+        description: "{{ $labels.slo_name }} has only {{ $value | humanize }}% error budget remaining"
+        runbook: "https://wiki.elevatediq.com/runbooks/low-budget"

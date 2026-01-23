@@ -1,0 +1,295 @@
+{
+  "dashboard": {
+    "title": "ElevatedIQ Prompt Management Dashboard",
+    "tags": ["prompts", "ai", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Prompt Execution Success Rate",
+        "type": "gauge",
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 0,
+          "y": 0
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(elevatediq_prompts_executions_total{status=\"success\"}[5m])) / sum(rate(elevatediq_prompts_executions_total[5m])) * 100",
+            "legendFormat": "Success Rate %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 100,
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Total Executions (5m)",
+        "type": "stat",
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 6,
+          "y": 0
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(elevatediq_prompts_executions_total[5m])) * 300"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Cache Hit Rate",
+        "type": "gauge",
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 12,
+          "y": 0
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(elevatediq_prompts_cache_hits_total[5m])) / (sum(rate(elevatediq_prompts_cache_hits_total[5m])) + sum(rate(elevatediq_prompts_cache_misses_total[5m]))) * 100",
+            "legendFormat": "Cache Hit Rate %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 100,
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Cost Saved Today (USD)",
+        "type": "stat",
+        "gridPos": {
+          "h": 8,
+          "w": 6,
+          "x": 18,
+          "y": 0
+        },
+        "targets": [
+          {
+            "expr": "sum(increase(elevatediq_prompts_cost_saved_usd[24h]))",
+            "legendFormat": "Cost Saved USD"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD",
+            "custom": {
+              "displayMode": "number"
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Execution Latency (p50, p95, p99)",
+        "type": "timeseries",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(elevatediq_prompts_execution_latency_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(elevatediq_prompts_execution_latency_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(elevatediq_prompts_execution_latency_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p99"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Token Usage by Prompt",
+        "type": "bargauge",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(elevatediq_prompts_tokens_used[5m])) by (prompt_id)",
+            "legendFormat": "{{prompt_id}}"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "API Cost Trend (Last 7 Days)",
+        "type": "timeseries",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 16
+        },
+        "targets": [
+          {
+            "expr": "sum(increase(elevatediq_prompts_total_cost_usd[1h])) by (prompt_id)",
+            "legendFormat": "{{prompt_id}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD"
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Error Rate by Prompt",
+        "type": "timeseries",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 16
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(elevatediq_prompts_executions_total{status=\"failure\"}[5m])) by (prompt_id) / sum(rate(elevatediq_prompts_executions_total[5m])) by (prompt_id) * 100",
+            "legendFormat": "{{prompt_id}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "A/B Test Progress",
+        "type": "stat",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 0,
+          "y": 24
+        },
+        "targets": [
+          {
+            "expr": "elevatediq_prompts_ab_tests_running",
+            "legendFormat": "Running Tests"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Optimizations Applied",
+        "type": "stat",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 6,
+          "y": 24
+        },
+        "targets": [
+          {
+            "expr": "sum(elevatediq_prompts_optimizations_total)",
+            "legendFormat": "Total Optimizations"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Cache Size",
+        "type": "stat",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 12,
+          "y": 24
+        },
+        "targets": [
+          {
+            "expr": "sum(elevatediq_prompts_cache_size)",
+            "legendFormat": "Cache Entries"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Monthly Budget Alert",
+        "type": "alert",
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 18,
+          "y": 24
+        },
+        "targets": [
+          {
+            "expr": "sum(increase(elevatediq_prompts_total_cost_usd[30d])) > 100",
+            "legendFormat": "Over $100 Monthly"
+          }
+        ]
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "current": {
+            "text": "5m",
+            "value": "5m"
+          },
+          "hide": 0,
+          "includeAll": false,
+          "label": "Time Range",
+          "multi": false,
+          "name": "range",
+          "options": [
+            {
+              "selected": false,
+              "text": "1m",
+              "value": "1m"
+            },
+            {
+              "selected": true,
+              "text": "5m",
+              "value": "5m"
+            },
+            {
+              "selected": false,
+              "text": "1h",
+              "value": "1h"
+            },
+            {
+              "selected": false,
+              "text": "24h",
+              "value": "24h"
+            }
+          ],
+          "query": "1m, 5m, 1h, 24h",
+          "type": "custom"
+        }
+      ]
+    },
+    "refresh": "10s",
+    "schemaVersion": 38,
+    "style": "dark",
+    "version": 1
+  }
+}

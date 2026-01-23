@@ -1,0 +1,158 @@
+# ============================================================================
+# Prometheus Configuration
+# ============================================================================
+# Purpose: Configure Prometheus to scrape metrics from all services
+# Documentation: https://prometheus.io/docs/prometheus/latest/configuration/configuration/
+
+global:
+  # Scrape interval: How often to scrape targets by default
+  scrape_interval: 15s
+
+  # Scrape timeout: How long until a scrape request times out
+  scrape_timeout: 10s
+
+  # Evaluation interval: How often to evaluate rules
+  evaluation_interval: 15s
+
+  # Attach these labels to every timeseries
+  external_labels:
+    environment: 'production'
+    cluster: 'elevatediq-api'
+    service: 'prompt-library'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - '/etc/prometheus/rules/*.yml'
+
+# Scrape configurations
+scrape_configs:
+  # ========================================================================
+  # PROMETHEUS SELF-MONITORING
+  # ========================================================================
+  - job_name: 'prometheus'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['localhost:9090']
+    labels:
+      component: 'monitoring'
+      severity: 'critical'
+
+  # ========================================================================
+  # PROMPT API SERVER
+  # ========================================================================
+  - job_name: 'prompt-api'
+    metrics_path: '/metrics/prometheus'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    static_configs:
+      - targets: ['prompt-api:8080']
+        labels:
+          service: 'prompt-api'
+          component: 'api'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+    metric_relabel_configs:
+      # Add service label to all metrics
+      - source_labels: [__name__]
+        target_label: exported_service
+        replacement: 'prompt-api'
+
+  # ========================================================================
+  # POSTGRESQL DATABASE
+  # ========================================================================
+  - job_name: 'postgres'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['postgres:5432']
+        labels:
+          service: 'postgres'
+          component: 'database'
+    # Postgres exporter would run on port 9187
+    # This is a placeholder for when postgres_exporter is added
+
+  # ========================================================================
+  # REDIS CACHE
+  # ========================================================================
+  - job_name: 'redis'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['redis:6379']
+        labels:
+          service: 'redis'
+          component: 'cache'
+    # Redis exporter would run on port 9121
+    # This is a placeholder for when redis_exporter is added
+
+  # ========================================================================
+  # DOCKER DAEMON (via cadvisor)
+  # ========================================================================
+  - job_name: 'docker'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['localhost:8080']
+        labels:
+          service: 'docker'
+          component: 'infrastructure'
+    # cAdvisor would typically run on localhost:8080
+    # This is a placeholder for container metrics
+
+  # ========================================================================
+  # SERVICE DISCOVERY (Optional - for Kubernetes)
+  # ========================================================================
+  # Uncomment below if running in Kubernetes
+  # - job_name: 'kubernetes-pods'
+  #   kubernetes_sd_configs:
+  #     - role: pod
+  #   relabel_configs:
+  #     - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+  #       action: keep
+  #       regex: true
+  #     - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+  #       action: replace
+  #       target_label: __metrics_path__
+  #       regex: (.+)
+  #     - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+  #       action: replace
+  #       regex: ([^:]+)(?::\d+)?;(\d+)
+  #       replacement: $1:$2
+  #       target_label: __address__
+
+# ============================================================================
+# REMOTE STORAGE CONFIGURATION (Optional)
+# ============================================================================
+# Uncomment to send metrics to remote storage (e.g., Thanos, Cortex)
+# remote_write:
+#   - url: "http://cortex:9009/api/prom/push"
+#     write_relabel_configs:
+#       - source_labels: [__name__]
+#         regex: '.+_bucket|.+_total|.+_sum|.+_count'
+#         action: keep
+#
+# remote_read:
+#   - url: "http://cortex:9009/api/prom/read"
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels:
+          service: postgres
+          env: staging
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: prometheus
+          env: staging
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []

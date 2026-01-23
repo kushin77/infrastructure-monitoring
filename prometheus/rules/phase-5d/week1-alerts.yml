@@ -1,0 +1,409 @@
+# Phase 5D Week 1 Alert Rules - Critical Services
+# EIP Portal (12), RoundRobin Core (14), AI Chatbot Orchestrator (11)
+# Total: 37 alerts
+
+groups:
+  - name: phase-5d-week1-critical
+    interval: 30s
+    rules:
+      # EIP Portal (12 alerts)
+      - alert: EIP_Gateway_Down
+        expr: up{job="eip-portal"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: eip-portal
+          phase: 5d-week1
+        annotations:
+          summary: "EIP Portal gateway unavailable"
+          description: "EIP Portal pod has been down for 2+ minutes. Immediate attention required."
+          runbook_url: "https://github.com/elevatediq/docs/runbooks/phase-5d/eip-portal-recovery.md"
+
+      - alert: EIP_High_Response_Time
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="eip-portal"}[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: eip-portal
+          phase: 5d-week1
+        annotations:
+          summary: "EIP Portal P95 latency > 500ms"
+          description: "Response time degradation detected"
+
+      - alert: EIP_High_Error_Rate
+        expr: rate(http_requests_total{job="eip-portal",status=~"5.."}[5m]) > 0.001
+        for: 5m
+        labels:
+          severity: critical
+          service: eip-portal
+          phase: 5d-week1
+        annotations:
+          summary: "EIP Portal error rate > 0.1%"
+          description: "Check application logs immediately"
+
+      - alert: EIP_Memory_Usage_High
+        expr: process_resident_memory_bytes{job="eip-portal"} > 1073741824
+        for: 5m
+        labels:
+          severity: warning
+          service: eip-portal
+          phase: 5d-week1
+        annotations:
+          summary: "EIP Portal memory > 1GB"
+          description: "Memory pressure detected"
+
+      - alert: EIP_CPU_Usage_High
+        expr: rate(process_cpu_seconds_total{job="eip-portal"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: eip-portal
+          phase: 5d-week1
+        annotations:
+          summary: "EIP Portal CPU usage high"
+          description: "CPU utilization exceeds 80%"
+
+      - alert: EIP_Goroutines_High
+        expr: go_goroutines{job="eip-portal"} > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: eip-portal
+          phase: 5d-week1
+        annotations:
+          summary: "Potential goroutine leak in EIP Portal"
+          description: "Goroutines growing beyond normal threshold"
+
+      - alert: EIP_Redis_Connection_Failed
+        expr: redis_connected_clients{job="eip-portal"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: eip-portal
+          phase: 5d-week1
+        annotations:
+          summary: "EIP Portal lost Redis connection"
+          description: "Cannot reach Redis cache layer"
+
+      - alert: EIP_Database_Connection_Failed
+        expr: pg_up{job="eip-portal"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: eip-portal
+          phase: 5d-week1
+        annotations:
+          summary: "EIP Portal lost database connection"
+          description: "PostgreSQL unreachable"
+
+      - alert: EIP_Request_Queue_Growing
+        expr: rate(http_request_queue_length{job="eip-portal"}[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: eip-portal
+          phase: 5d-week1
+        annotations:
+          summary: "EIP Portal request queue backlog"
+          description: "Request processing lag detected"
+
+      - alert: EIP_Rate_Limiter_Triggered
+        expr: rate(rate_limit_violations_total{job="eip-portal"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: info
+          service: eip-portal
+          phase: 5d-week1
+        annotations:
+          summary: "EIP Portal rate limiter active"
+          description: "Multiple requests exceeding rate limits"
+
+      - alert: EIP_TLS_Certificate_Expiring
+        expr: tls_certificate_expire_seconds{job="eip-portal"} - time() < 604800
+        for: 1h
+        labels:
+          severity: warning
+          service: eip-portal
+          phase: 5d-week1
+        annotations:
+          summary: "EIP Portal TLS certificate expiring in < 7 days"
+          description: "Immediate renewal required"
+
+      - alert: EIP_Appsmith_Proxy_Error
+        expr: increase(http_requests_total{job="eip-portal",upstream="appsmith",status=~"5.."}[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          service: eip-portal
+          phase: 5d-week1
+        annotations:
+          summary: "EIP Portal Appsmith proxy failures"
+          description: "Backend Appsmith instance experiencing issues"
+
+      # RoundRobin Core (14 alerts)
+      - alert: RRCore_API_Down
+        expr: up{job="roundrobin-core"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core API is down"
+          description: "Platform core API unavailable - critical impact"
+          runbook_url: "https://github.com/elevatediq/docs/runbooks/phase-5d/roundrobin-core-recovery.md"
+
+      - alert: RRCore_High_Error_Rate
+        expr: rate(http_requests_total{job="roundrobin-core",status=~"5.."}[5m]) > 0.0005
+        for: 5m
+        labels:
+          severity: critical
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core error rate critical (>0.05%)"
+          description: "Service experiencing widespread errors"
+
+      - alert: RRCore_High_Response_Time
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="roundrobin-core"}[5m])) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core P95 latency > 200ms"
+          description: "API response time degradation"
+
+      - alert: RRCore_Database_Slow_Queries
+        expr: histogram_quantile(0.95, rate(db_query_duration_seconds_bucket{job="roundrobin-core"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core database queries slow (P95 > 1s)"
+          description: "Database performance degradation"
+
+      - alert: RRCore_PostgreSQL_Connection_Pool_Exhausted
+        expr: pg_stat_activity_count{job="roundrobin-core"} > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core PostgreSQL connection pool near exhaustion"
+          description: "Connection pool usage >95%"
+
+      - alert: RRCore_Redis_Cache_Miss_Rate_High
+        expr: rate(redis_cache_misses_total{job="roundrobin-core"}[5m]) / rate(redis_cache_requests_total{job="roundrobin-core"}[5m]) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core cache miss rate high (>30%)"
+          description: "Cache effectiveness degraded"
+
+      - alert: RRCore_Memory_Usage_High
+        expr: process_resident_memory_bytes{job="roundrobin-core"} > 2147483648
+        for: 5m
+        labels:
+          severity: warning
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core memory > 2GB"
+          description: "Memory pressure increasing"
+
+      - alert: RRCore_CPU_Usage_High
+        expr: rate(process_cpu_seconds_total{job="roundrobin-core"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core CPU usage high (>80%)"
+          description: "High compute utilization"
+
+      - alert: RRCore_Tenant_Isolation_Violation_Attempt
+        expr: increase(tenant_isolation_violations_total{job="roundrobin-core"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core tenant isolation violation detected"
+          description: "SECURITY: Cross-tenant access attempt detected"
+
+      - alert: RRCore_JWT_Token_Validation_Failures
+        expr: rate(jwt_validation_failures_total{job="roundrobin-core"}[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core JWT validation failures high"
+          description: "Token validation errors exceeding threshold"
+
+      - alert: RRCore_Background_Jobs_Failing
+        expr: rate(background_job_failures_total{job="roundrobin-core"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core background jobs failing"
+          description: "Job queue showing elevated failure rate"
+
+      - alert: RRCore_Secret_Manager_Access_Failed
+        expr: increase(secret_manager_errors_total{job="roundrobin-core"}[5m]) > 5
+        for: 2m
+        labels:
+          severity: critical
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core cannot access Secret Manager"
+          description: "GSM/Vault connectivity issue"
+
+      - alert: RRCore_Multi_Tenant_Query_Lag
+        expr: histogram_quantile(0.99, rate(multi_tenant_query_duration_seconds_bucket{job="roundrobin-core"}[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: roundrobin-core
+          phase: 5d-week1
+        annotations:
+          summary: "RoundRobin Core multi-tenant query lag (P99 > 5s)"
+          description: "Tenant isolation queries performing poorly"
+
+      # AI Chatbot Orchestrator (11 alerts)
+      - alert: ChatBot_Service_Down
+        expr: up{job="ai-chatbot-orchestrator"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: ai-chatbot-orchestrator
+          phase: 5d-week1
+        annotations:
+          summary: "AI Chatbot Orchestrator is down"
+          description: "Chat service unavailable"
+          runbook_url: "https://github.com/elevatediq/docs/runbooks/phase-5d/chatbot-service-recovery.md"
+
+      - alert: ChatBot_High_Response_Time
+        expr: histogram_quantile(0.95, rate(chat_request_duration_seconds_bucket{job="ai-chatbot-orchestrator"}[5m])) > 3
+        for: 5m
+        labels:
+          severity: warning
+          service: ai-chatbot-orchestrator
+          phase: 5d-week1
+        annotations:
+          summary: "AI Chatbot response time high (P95 > 3s)"
+          description: "Chat inference latency degraded"
+
+      - alert: ChatBot_Model_Routing_Failed
+        expr: rate(model_routing_failures_total{job="ai-chatbot-orchestrator"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: ai-chatbot-orchestrator
+          phase: 5d-week1
+        annotations:
+          summary: "AI Chatbot model routing failures >5%"
+          description: "Cannot route requests to appropriate models"
+
+      - alert: ChatBot_Ollama_Unavailable
+        expr: ollama_health{job="ai-chatbot-orchestrator"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          service: ai-chatbot-orchestrator
+          phase: 5d-week1
+        annotations:
+          summary: "Ollama local inference unavailable"
+          description: "Will fallback to cloud models (cost increase)"
+
+      - alert: ChatBot_Claude_API_Error
+        expr: rate(claude_api_errors_total{job="ai-chatbot-orchestrator"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: ai-chatbot-orchestrator
+          phase: 5d-week1
+        annotations:
+          summary: "Claude API errors >10%"
+          description: "Claude endpoint experiencing issues"
+
+      - alert: ChatBot_OpenAI_API_Error
+        expr: rate(openai_api_errors_total{job="ai-chatbot-orchestrator"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: ai-chatbot-orchestrator
+          phase: 5d-week1
+        annotations:
+          summary: "OpenAI API errors >10%"
+          description: "OpenAI endpoint experiencing issues"
+
+      - alert: ChatBot_Redis_Context_Storage_Failed
+        expr: rate(redis_write_errors_total{job="ai-chatbot-orchestrator",context="chat"}[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+          service: ai-chatbot-orchestrator
+          phase: 5d-week1
+        annotations:
+          summary: "ChatBot cannot store conversation context"
+          description: "Redis write failures for chat context"
+
+      - alert: ChatBot_Cost_Overage
+        expr: chat_api_cost_usd{job="ai-chatbot-orchestrator"} / on() chat_cost_budget_usd > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          service: ai-chatbot-orchestrator
+          phase: 5d-week1
+        annotations:
+          summary: "ChatBot API costs approaching budget"
+          description: "Monthly cost usage >90% of budget"
+
+      - alert: ChatBot_Rate_Limit_Exceeded
+        expr: rate(rate_limit_exceeded_total{job="ai-chatbot-orchestrator"}[5m]) > 100
+        for: 5m
+        labels:
+          severity: info
+          service: ai-chatbot-orchestrator
+          phase: 5d-week1
+        annotations:
+          summary: "ChatBot rate limiting active"
+          description: "Throttling requests due to rate limits"
+
+      - alert: ChatBot_Token_Limit_Breach
+        expr: max_tokens_in_context{job="ai-chatbot-orchestrator"} > 0.95 * context_window_max_tokens
+        for: 5m
+        labels:
+          severity: warning
+          service: ai-chatbot-orchestrator
+          phase: 5d-week1
+        annotations:
+          summary: "ChatBot context window near limit"
+          description: "Conversation tokens >95% of limit"
+
+      - alert: ChatBot_Conversation_Loss
+        expr: increase(conversation_loss_events_total{job="ai-chatbot-orchestrator"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: ai-chatbot-orchestrator
+          phase: 5d-week1
+        annotations:
+          summary: "ChatBot conversation data loss detected"
+          description: "User conversations being lost"

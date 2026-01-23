@@ -1,0 +1,39 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": null,
+      "fieldConfig": {"defaults": {},"overrides": []},
+      "gridPos": {"h": 8,"w": 24,"x": 0,"y": 0},
+      "id": 1,
+      "options": {"legend": {"displayMode": "list"}},
+      "targets": [
+        {"expr": "ollama_up","legendFormat": "ollama_up","refId": "A"},
+        {"expr": "ollama_models_loaded","legendFormat": "models_loaded","refId": "B"}
+      ],
+      "title": "Ollama Health (ollama_up) & Models Loaded",
+      "type": "timeseries"
+    },
+    {
+      "type": "stat",
+      "title": "Latest ollama_up",
+      "gridPos": {"h": 3,"w": 6,"x": 0,"y": 8},
+      "targets": [{"expr": "ollama_up","refId": "A"}]
+    }
+  ],
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": ["defrag","ollama"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h","to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "DEFRAG - Ollama Health",
+  "uid": "defrag-ollama-health",
+  "version": 1
+}

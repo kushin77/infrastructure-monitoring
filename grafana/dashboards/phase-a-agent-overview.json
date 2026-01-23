@@ -1,0 +1,184 @@
+{
+  "dashboard": {
+    "title": "PHASE-A Agent Overview",
+    "uid": "phase-a-agents",
+    "version": 1,
+    "timezone": "UTC",
+    "schemaVersion": 27,
+    "tags": ["phase-a", "agents", "defrag"],
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Agent Health Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=~\".*-agent\"}",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 4},
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "orientation": "horizontal",
+          "textMode": "value_and_name",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "value": "0", "text": "DOWN", "color": "red"},
+              {"type": "value", "value": "1", "text": "UP", "color": "green"}
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "DEFRAG Healing Cycles",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(defrag_auto_heal_cycles_total[5m])",
+            "legendFormat": "Healing cycles/sec",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 4},
+        "yaxes": [
+          {"format": "short", "label": "Cycles/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Docker Agent Metrics",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "defrag_auto_heal_cycles_total",
+            "legendFormat": "Total Healing Cycles",
+            "refId": "A"
+          },
+          {
+            "expr": "defrag_healing_duration_seconds",
+            "legendFormat": "Healing Duration (s)",
+            "refId": "B"
+          }
+        ],
+        "gridPos": {"x": 0, "y": 4, "w": 12, "h": 6}
+      },
+      {
+        "id": 4,
+        "title": "Webmaster Agent - Endpoint Checks",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(webmaster_endpoint_checks_total[5m])",
+            "legendFormat": "Checks/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(webmaster_endpoint_checks_failed_total[5m])",
+            "legendFormat": "Failures/sec",
+            "refId": "B"
+          }
+        ],
+        "gridPos": {"x": 12, "y": 4, "w": 12, "h": 6}
+      },
+      {
+        "id": 5,
+        "title": "Analyst Agent - Automation Activity",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "analyst_automation_cycles_total",
+            "legendFormat": "Automation Cycles",
+            "refId": "A"
+          },
+          {
+            "expr": "analyst_tasks_discovered_total",
+            "legendFormat": "Tasks Discovered",
+            "refId": "B"
+          }
+        ],
+        "gridPos": {"x": 0, "y": 10, "w": 12, "h": 6}
+      },
+      {
+        "id": 6,
+        "title": "Function-Tester - Test Coverage",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "defrag_test_coverage",
+            "legendFormat": "Coverage %",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"x": 12, "y": 10, "w": 6, "h": 6},
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 1,
+            "unit": "percentunit",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 0.8, "color": "yellow"},
+                {"value": 0.85, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Cross-Agent Communication",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{job=~\".*-agent\"}[5m]))",
+            "legendFormat": "Requests/sec",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"x": 18, "y": 10, "w": 6, "h": 6}
+      },
+      {
+        "id": 8,
+        "title": "Alert Status",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "ALERTS{component=~\".*-agent\"}",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"x": 0, "y": 16, "w": 24, "h": 6}
+      }
+    ]
+  }
+}

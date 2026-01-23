@@ -1,0 +1,131 @@
+groups:
+  - name: disk_alerts
+    interval: 30s
+    rules:
+      # Critical: Disk usage above 80%
+      - alert: DiskUsageCritical
+        expr: |
+          (
+            node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"} -
+            node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"}
+          ) / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"} * 100 > 80
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+          team: platform
+        annotations:
+          summary: "Critical disk usage on {{ $labels.instance }}"
+          description: |
+            Disk usage on {{ $labels.instance }} is {{ $value | humanize }}%.
+            Current usage is above 80% threshold.
+            Immediate action required to prevent system instability.
+            Run: /home/akushnir/elevatedIQ/scripts/emergency-cleanup-disk.sh
+          runbook_url: "https://docs.elevatediq.ai/runbooks/disk-cleanup"
+          dashboard_url: "http://localhost:3000/d/disk-monitoring"
+
+      # Warning: Disk usage above 70%
+      - alert: DiskUsageWarning
+        expr: |
+          (
+            node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"} -
+            node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"}
+          ) / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"} * 100 > 70
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+          team: platform
+        annotations:
+          summary: "Disk usage warning on {{ $labels.instance }}"
+          description: |
+            Disk usage on {{ $labels.instance }} is {{ $value | humanize }}%.
+            Usage is above 70% - plan cleanup soon.
+            Check: docker system df
+          runbook_url: "https://docs.elevatediq.ai/runbooks/disk-monitoring"
+
+      # Info: Disk usage growing rapidly
+      - alert: DiskUsageGrowthRapid
+        expr: |
+          predict_linear(
+            node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"}[1h],
+            4 * 3600
+          ) < 0
+        for: 15m
+        labels:
+          severity: info
+          component: infrastructure
+          team: platform
+        annotations:
+          summary: "Disk filling rapidly on {{ $labels.instance }}"
+          description: |
+            Current disk usage trend indicates disk will be full in < 4 hours.
+            Current available: {{ $value | humanize }}B
+            Monitor closely and prepare for cleanup.
+
+      # Critical: Disk will be full soon
+      - alert: DiskWillFillIn4Hours
+        expr: |
+          predict_linear(
+            node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"}[1h],
+            4 * 3600
+          ) < (node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"} * 0.1)
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+          team: platform
+        annotations:
+          summary: "Disk predicted to fill in 4 hours on {{ $labels.instance }}"
+          description: |
+            Based on current growth rate, disk will reach critical levels in 4 hours.
+            Predicted available: {{ $value | humanize }}B
+            Immediate cleanup required.
+            Run: /home/akushnir/elevatedIQ/scripts/emergency-cleanup-disk.sh
+
+      # Docker volume usage
+      - alert: DockerVolumeUsageHigh
+        expr: |
+          (
+            docker_volume_size_bytes - docker_volume_available_bytes
+          ) / docker_volume_size_bytes * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: docker
+          team: platform
+        annotations:
+          summary: "Docker volume {{ $labels.volume }} usage high"
+          description: |
+            Docker volume {{ $labels.volume }} is {{ $value | humanize }}% full.
+            Consider cleaning: docker volume prune
+
+      # Inode exhaustion warning
+      - alert: InodeUsageHigh
+        expr: |
+          (
+            node_filesystem_files{mountpoint="/",fstype!="tmpfs"} -
+            node_filesystem_files_free{mountpoint="/",fstype!="tmpfs"}
+          ) / node_filesystem_files{mountpoint="/",fstype!="tmpfs"} * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+          team: platform
+        annotations:
+          summary: "Inode usage high on {{ $labels.instance }}"
+          description: |
+            Inode usage on {{ $labels.instance }} is {{ $value | humanize }}%.
+            High inode usage can cause "No space left on device" errors even with free disk space.
+            Check for excessive small files: find / -xdev -printf '%h\n' | sort | uniq -c | sort -rn | head -20
+
+# Integration with Alertmanager
+# Add to prometheus.yml:
+# rule_files:
+#   - /etc/prometheus/alerts/disk.yml
+#
+# Restart Prometheus:
+# docker restart elevatediq-prometheus
+#
+# Verify alerts loaded:
+# curl http://localhost:9090/api/v1/rules | jq '.data.groups[] | select(.name=="disk_alerts")'

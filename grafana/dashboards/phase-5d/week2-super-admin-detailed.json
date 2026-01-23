@@ -1,0 +1,23 @@
+{
+  "dashboard": {
+    "title": "Phase 5D Week 2 - Super Admin API Detailed",
+    "panels": [
+      {
+        "title": "RBAC Permission Denials",
+        "targets": [{"expr": "rate(super_admin_permission_denied_total[5m])"}],
+        "type": "stat"
+      },
+      {
+        "title": "Audit Log Lag",
+        "targets": [{"expr": "super_admin_audit_log_lag_seconds"}],
+        "type": "graph"
+      },
+      {
+        "title": "Feature Flag Cache Staleness",
+        "targets": [{"expr": "time() - super_admin_feature_flags_last_update_timestamp"}],
+        "type": "stat"
+      }
+    ],
+    "refresh": "30s"
+  }
+}

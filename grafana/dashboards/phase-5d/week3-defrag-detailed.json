@@ -1,0 +1,23 @@
+{
+  "dashboard": {
+    "title": "Phase 5D Week 3 - Defrag Portal Detailed",
+    "panels": [
+      {
+        "title": "Redis Pub/Sub Lag",
+        "targets": [{"expr": "defrag_pubsub_lag_seconds"}],
+        "type": "graph"
+      },
+      {
+        "title": "Policy Enforcement Lag",
+        "targets": [{"expr": "time() - defrag_last_enforcement_timestamp"}],
+        "type": "stat"
+      },
+      {
+        "title": "Feedback Loss Events",
+        "targets": [{"expr": "increase(defrag_feedback_write_errors_total[5m])"}],
+        "type": "stat"
+      }
+    ],
+    "refresh": "30s"
+  }
+}

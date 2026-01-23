@@ -1,0 +1,168 @@
+{
+  "dashboard": {
+    "title": "Stateful Assistant API",
+    "tags": ["stateful-assistant", "api", "production"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Rate (RPS)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{job=\"stateful-assistant-api\"}[5m]))",
+            "legendFormat": "Total RPS"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{job=\"stateful-assistant-api\",status=~\"2..\"}[5m]))",
+            "legendFormat": "2xx (Success)"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{job=\"stateful-assistant-api\",status=~\"4..\"}[5m]))",
+            "legendFormat": "4xx (Client Error)"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{job=\"stateful-assistant-api\",status=~\"5..\"}[5m]))",
+            "legendFormat": "5xx (Server Error)"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Error Rate (%)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "(sum(rate(http_errors_total{job=\"stateful-assistant-api\"}[5m])) / sum(rate(http_requests_total{job=\"stateful-assistant-api\"}[5m]))) * 100",
+            "legendFormat": "Total Error %"
+          },
+          {
+            "expr": "(sum(rate(http_errors_total{job=\"stateful-assistant-api\",error_type=\"server_error\"}[5m])) / sum(rate(http_requests_total{job=\"stateful-assistant-api\"}[5m]))) * 100",
+            "legendFormat": "5xx Error %"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Request Latency (P50, P95, P99)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=\"stateful-assistant-api\"}[5m])) by (le))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"stateful-assistant-api\"}[5m])) by (le))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"stateful-assistant-api\"}[5m])) by (le))",
+            "legendFormat": "P99"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "In-Flight Requests",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "http_requests_in_flight{job=\"stateful-assistant-api\"}",
+            "legendFormat": "Concurrent Requests"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Top Endpoints by Request Count",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, sum by (endpoint) (rate(http_requests_total{job=\"stateful-assistant-api\"}[5m])))",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      },
+      {
+        "id": 6,
+        "title": "Slowest Endpoints (P95)",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, histogram_quantile(0.95, sum by (endpoint, le) (rate(http_request_duration_seconds_bucket{job=\"stateful-assistant-api\"}[5m]))))",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "go_memstats_alloc_bytes{job=\"stateful-assistant-api\"} / 1024 / 1024",
+            "legendFormat": "Allocated MB"
+          },
+          {
+            "expr": "go_memstats_sys_bytes{job=\"stateful-assistant-api\"} / 1024 / 1024",
+            "legendFormat": "System MB"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+      },
+      {
+        "id": 8,
+        "title": "Goroutines",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "go_goroutines{job=\"stateful-assistant-api\"}",
+            "legendFormat": "Goroutines"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+      },
+      {
+        "id": 9,
+        "title": "GC Pause Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(go_gc_duration_seconds_sum{job=\"stateful-assistant-api\"}[5m]) / rate(go_gc_duration_seconds_count{job=\"stateful-assistant-api\"}[5m])",
+            "legendFormat": "Avg GC Pause"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32}
+      },
+      {
+        "id": 10,
+        "title": "Request/Response Size",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_size_bytes_bucket{job=\"stateful-assistant-api\"}[5m])) by (le)) / 1024",
+            "legendFormat": "P95 Request Size (KB)"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_response_size_bytes_bucket{job=\"stateful-assistant-api\"}[5m])) by (le)) / 1024",
+            "legendFormat": "P95 Response Size (KB)"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32}
+      }
+    ],
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    }
+  }
+}

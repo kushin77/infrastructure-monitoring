@@ -1,0 +1,23 @@
+{
+  "dashboard": {
+    "title": "Phase 5D Week 3 - AIOps Engine Detailed",
+    "panels": [
+      {
+        "title": "Forecast Error (MAE)",
+        "targets": [{"expr": "aiops_forecast_mean_absolute_error"}],
+        "type": "graph"
+      },
+      {
+        "title": "Model Training Status",
+        "targets": [{"expr": "increase(aiops_model_training_failures_total[5m])"}],
+        "type": "stat"
+      },
+      {
+        "title": "Prediction Confidence",
+        "targets": [{"expr": "avg(aiops_prediction_confidence)"}],
+        "type": "gauge"
+      }
+    ],
+    "refresh": "30s"
+  }
+}

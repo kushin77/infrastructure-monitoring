@@ -1,0 +1,23 @@
+{
+  "dashboard": {
+    "title": "Phase 5D Week 2 - News Feed Engine Detailed",
+    "panels": [
+      {
+        "title": "Video Generation Success Rate",
+        "targets": [{"expr": "rate(news_feed_video_generation_success_total[5m]) / rate(news_feed_video_generation_attempts_total[5m])"}],
+        "type": "gauge"
+      },
+      {
+        "title": "Content Quality Scores",
+        "targets": [{"expr": "news_feed_content_quality_score"}],
+        "type": "graph"
+      },
+      {
+        "title": "External API Rate Limits",
+        "targets": [{"expr": "rate(news_feed_api_rate_limit_exceeded_total[5m])"}],
+        "type": "stat"
+      }
+    ],
+    "refresh": "30s"
+  }
+}

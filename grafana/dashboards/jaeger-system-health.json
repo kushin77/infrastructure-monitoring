@@ -1,0 +1,179 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "dashboard": {
+    "id": null,
+    "uid": "jaeger-system-health",
+    "title": "Jaeger System Health",
+    "tags": ["jaeger", "observability", "system"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Jaeger Uptime",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+        "targets": [{
+          "expr": "up{job=\"jaeger\"}",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"type": "value", "value": "1", "text": "UP", "color": "green"},
+              {"type": "value", "value": "0", "text": "DOWN", "color": "red"}
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Traces Ingested (per minute)",
+        "type": "graph",
+        "gridPos": {"x": 6, "y": 0, "w": 9, "h": 4},
+        "targets": [{
+          "expr": "rate(jaeger_collector_traces_received_total[1m]) * 60",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }]
+      },
+      {
+        "id": 3,
+        "title": "Active Services",
+        "type": "stat",
+        "gridPos": {"x": 15, "y": 0, "w": 5, "h": 4},
+        "targets": [{
+          "expr": "count(count by (service_name) (jaeger_collector_spans_received_total))",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 10, "color": "yellow"},
+                {"value": 40, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Spans Ingested (per minute)",
+        "type": "graph",
+        "gridPos": {"x": 20, "y": 0, "w": 4, "h": 4},
+        "targets": [{
+          "expr": "rate(jaeger_collector_spans_received_total[1m]) * 60",
+          "legendFormat": "spans/min",
+          "refId": "A"
+        }]
+      },
+      {
+        "id": 5,
+        "title": "Collector Drop Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 4, "w": 8, "h": 4},
+        "targets": [{
+          "expr": "rate(jaeger_collector_spans_dropped_total[5m])",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }],
+        "alert": {
+          "name": "High Span Drop Rate",
+          "conditions": [{"evaluator": {"params": [10], "type": "gt"}}]
+        }
+      },
+      {
+        "id": 6,
+        "title": "Storage Latency (P95)",
+        "type": "graph",
+        "gridPos": {"x": 8, "y": 4, "w": 8, "h": 4},
+        "targets": [{
+          "expr": "histogram_quantile(0.95, rate(jaeger_storage_operations_duration_seconds_bucket[5m]))",
+          "legendFormat": "{{operation}}",
+          "refId": "A"
+        }]
+      },
+      {
+        "id": 7,
+        "title": "Query Latency (P95)",
+        "type": "graph",
+        "gridPos": {"x": 16, "y": 4, "w": 8, "h": 4},
+        "targets": [{
+          "expr": "histogram_quantile(0.95, rate(jaeger_query_requests_duration_seconds_bucket[5m]))",
+          "legendFormat": "P95",
+          "refId": "A"
+        }]
+      },
+      {
+        "id": 8,
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 4},
+        "targets": [{
+          "expr": "process_resident_memory_bytes{job=\"jaeger\"} / 1024 / 1024",
+          "legendFormat": "Memory (MB)",
+          "refId": "A"
+        }]
+      },
+      {
+        "id": 9,
+        "title": "CPU Usage",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 4},
+        "targets": [{
+          "expr": "rate(process_cpu_seconds_total{job=\"jaeger\"}[5m]) * 100",
+          "legendFormat": "CPU %",
+          "refId": "A"
+        }]
+      },
+      {
+        "id": 10,
+        "title": "Span Queue Depth",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 12, "w": 12, "h": 4},
+        "targets": [{
+          "expr": "jaeger_collector_queue_length",
+          "legendFormat": "{{queue}}",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 3000, "color": "yellow"},
+                {"value": 5000, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 11,
+        "title": "HTTP Request Rate",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 12, "w": 12, "h": 4},
+        "targets": [{
+          "expr": "rate(jaeger_collector_http_requests_total[5m])",
+          "legendFormat": "{{code}}",
+          "refId": "A"
+        }]
+      }
+    ]
+  }
+}

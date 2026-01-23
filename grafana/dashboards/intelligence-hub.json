@@ -1,0 +1,55 @@
+{
+  "dashboard": {
+    "title": "Intelligence Hub - Live Quality Metrics",
+    "tags": ["intelligence", "quality", "ai"],
+    "timezone": "utc",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Health",
+        "type": "stat",
+        "targets": [{
+          "expr": "up{job=\"intelligence-hub\"}",
+          "legendFormat": "{{service}}"
+        }],
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Confidence Score (7d avg)",
+        "type": "gauge",
+        "targets": [{
+          "expr": "avg_over_time(intelligence_confidence[7d])"
+        }],
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Requests per Minute",
+        "type": "graph",
+        "targets": [{
+          "expr": "rate(intelligence_requests_total[5m]) * 60"
+        }],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+      },
+      {
+        "id": 4,
+        "title": "Response Time P95",
+        "type": "graph",
+        "targets": [{
+          "expr": "histogram_quantile(0.95, rate(intelligence_response_time_bucket[5m]))"
+        }],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+      },
+      {
+        "id": 5,
+        "title": "Quality Trend (Sparkline)",
+        "type": "sparkline",
+        "targets": [{
+          "expr": "avg_over_time(intelligence_confidence[24h])"
+        }],
+        "gridPos": {"h": 4, "w": 12, "x": 0, "y": 12}
+      }
+    ]
+  }
+}

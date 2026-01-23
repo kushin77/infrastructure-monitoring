@@ -1,0 +1,166 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "gpu-monitoring",
+    "title": "GPU Monitoring (NVIDIA DCGM)",
+    "tags": ["gpu", "nvidia", "hardware"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "type": "graph",
+        "title": "GPU Utilization",
+        "targets": [
+          {
+            "expr": "DCGM_FI_DEV_GPU_UTIL{job=\"gpu-exporter\"}",
+            "legendFormat": "GPU {{gpu}} - {{modelName}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "percent", "min": 0, "max": 100},
+          {"format": "short"}
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100
+          }
+        }
+      },
+      {
+        "id": 2,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "type": "graph",
+        "title": "GPU Temperature",
+        "targets": [
+          {
+            "expr": "DCGM_FI_DEV_GPU_TEMP{job=\"gpu-exporter\"}",
+            "legendFormat": "GPU {{gpu}} Temp"
+          }
+        ],
+        "yaxes": [
+          {"format": "celsius", "min": 0, "max": 100},
+          {"format": "short"}
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "celsius"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "type": "graph",
+        "title": "GPU Memory Usage",
+        "targets": [
+          {
+            "expr": "DCGM_FI_DEV_FB_USED{job=\"gpu-exporter\"}",
+            "legendFormat": "Used Memory GPU {{gpu}}"
+          },
+          {
+            "expr": "DCGM_FI_DEV_FB_FREE{job=\"gpu-exporter\"}",
+            "legendFormat": "Free Memory GPU {{gpu}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "decmbytes"},
+          {"format": "short"}
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decmbytes"
+          }
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "type": "graph",
+        "title": "GPU Power Usage",
+        "targets": [
+          {
+            "expr": "DCGM_FI_DEV_POWER_USAGE{job=\"gpu-exporter\"}",
+            "legendFormat": "Power GPU {{gpu}}"
+          }
+        ],
+        "yaxes": [
+          {"format": "watt"},
+          {"format": "short"}
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "watt"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "gridPos": {"h": 6, "w": 8, "x": 0, "y": 16},
+        "type": "stat",
+        "title": "SM Clock Speed",
+        "targets": [
+          {
+            "expr": "DCGM_FI_DEV_SM_CLOCK{job=\"gpu-exporter\"}",
+            "legendFormat": "{{modelName}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "hertz",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "id": 6,
+        "gridPos": {"h": 6, "w": 8, "x": 8, "y": 16},
+        "type": "stat",
+        "title": "Memory Clock Speed",
+        "targets": [
+          {
+            "expr": "DCGM_FI_DEV_MEM_CLOCK{job=\"gpu-exporter\"}",
+            "legendFormat": "{{modelName}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "hertz",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "id": 7,
+        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 16},
+        "type": "stat",
+        "title": "PCIe Replay Errors",
+        "targets": [
+          {
+            "expr": "DCGM_FI_DEV_PCIE_REPLAY_COUNTER{job=\"gpu-exporter\"}",
+            "legendFormat": "GPU {{gpu}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 10, "color": "yellow"},
+                {"value": 100, "color": "red"}
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

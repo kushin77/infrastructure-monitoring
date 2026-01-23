@@ -1,0 +1,67 @@
+{
+  "title": "Stateful Assistant Cascade",
+  "uid": "stateful-assistant-cascade",
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "provider",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(stateful_cascade_requests_total, provider)",
+        "refresh": 1,
+        "current": {
+          "text": "all",
+          "value": "all"
+        },
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Requests rate (req/min)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(stateful_cascade_requests_total{provider=~\"$provider\"}[5m]) * 60",
+          "legendFormat": "{{provider}}",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8}
+    },
+    {
+      "type": "graph",
+      "title": "Failures (5m increase)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "increase(stateful_cascade_provider_failures_total{provider=~\"$provider\"}[5m])",
+          "legendFormat": "{{provider}}",
+          "refId": "B"
+        }
+      ],
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8}
+    },
+    {
+      "type": "graph",
+      "title": "Retries (5m increase)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "increase(stateful_cascade_retries_total{provider=~\"$provider\"}[5m])",
+          "legendFormat": "{{provider}}",
+          "refId": "C"
+        }
+      ],
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}
+    }
+  ]
+}

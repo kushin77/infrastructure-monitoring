@@ -1,0 +1,23 @@
+{
+  "dashboard": {
+    "title": "Phase 5D Week 3 - Analytics Service Detailed",
+    "panels": [
+      {
+        "title": "ClickHouse Replication Lag",
+        "targets": [{"expr": "analytics_clickhouse_replication_lag_seconds"}],
+        "type": "graph"
+      },
+      {
+        "title": "Aggregation Job Status",
+        "targets": [{"expr": "increase(analytics_aggregation_job_failures_total[5m])"}],
+        "type": "stat"
+      },
+      {
+        "title": "Cost Calculation Errors",
+        "targets": [{"expr": "increase(analytics_cost_calculation_errors_total[5m])"}],
+        "type": "stat"
+      }
+    ],
+    "refresh": "30s"
+  }
+}

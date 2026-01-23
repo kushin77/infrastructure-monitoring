@@ -1,0 +1,202 @@
+{
+  "uid": "docker-agent",
+  "title": "Docker Agent - AI Expert Dashboard",
+  "tags": ["docker-agent", "ai", "containers"],
+  "timezone": "UTC",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Docker Agent Status",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "up{job=\"docker-agent\"}",
+          "legendFormat": "Status"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"value": 1, "text": "UP", "color": "green"},
+            {"value": 0, "text": "DOWN", "color": "red"}
+          ]
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Active Analyses",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "docker_agent_active_analyses",
+          "legendFormat": "Active"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "fieldConfig": {
+        "defaults": {
+          "max": 50,
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 30, "color": "yellow"},
+              {"value": 40, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Request Rate",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(docker_agent_requests_total[5m])",
+          "legendFormat": "{{endpoint}} - {{method}}"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+    },
+    {
+      "id": 4,
+      "title": "Analysis Duration (P95)",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(docker_agent_analysis_duration_seconds_bucket[5m]))",
+          "legendFormat": "{{operation_type}}"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Recommendations by Severity",
+      "type": "piechart",
+      "targets": [
+        {
+          "expr": "sum by (severity) (rate(docker_agent_recommendations_total[1h]))",
+          "legendFormat": "{{severity}}"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 12}
+    },
+    {
+      "id": 6,
+      "title": "Optimizations Applied",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(increase(docker_agent_optimizations_applied[24h]))",
+          "legendFormat": "Last 24h"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 12}
+    },
+    {
+      "id": 7,
+      "title": "Error Rate",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(docker_agent_errors_total[5m])",
+          "legendFormat": "{{error_type}}"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+    },
+    {
+      "id": 8,
+      "title": "Memory Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "container_memory_usage_bytes{container=\"elevatediq-docker-agent\"} / 1024 / 1024",
+          "legendFormat": "Memory MB"
+        }
+      ],
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 20},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "CPU Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{container=\"elevatediq-docker-agent\"}[5m])",
+          "legendFormat": "CPU Cores"
+        }
+      ],
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 20}
+    },
+    {
+      "id": 10,
+      "title": "Analysis Success Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(docker_agent_requests_total{status=~\"2..\"}[5m])) / sum(rate(docker_agent_requests_total[5m])) * 100",
+          "legendFormat": "Success %"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 26},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "red"},
+              {"value": 95, "color": "yellow"},
+              {"value": 99, "color": "green"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Container Stats",
+      "type": "table",
+      "targets": [
+        {
+          "expr": "count(docker_agent_active_analyses)",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 6, "y": 26}
+    },
+    {
+      "id": 12,
+      "title": "Recent Activity Log",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{container=\"elevatediq-docker-agent\"}",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 34}
+    }
+  ]
+}

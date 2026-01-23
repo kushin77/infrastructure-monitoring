@@ -1,0 +1,30 @@
+{
+  "dashboard": {
+    "title": "Phase 5D Week 1 - EIP Portal Overview",
+    "panels": [
+      {
+        "title": "Gateway Status",
+        "targets": [{"expr": "up{job=\"eip-portal\"}"}],
+        "type": "stat"
+      },
+      {
+        "title": "Response Time (P95)",
+        "targets": [{"expr": "histogram_quantile(0.95, rate(eip_request_duration_seconds_bucket[5m]))"}],
+        "type": "graph"
+      },
+      {
+        "title": "Error Rate",
+        "targets": [{"expr": "rate(eip_errors_total[5m])"}],
+        "type": "graph"
+      },
+      {
+        "title": "Memory Usage",
+        "targets": [{"expr": "container_memory_usage_bytes{pod=~\"eip-portal-.*\"} / container_spec_memory_limit_bytes"}],
+        "type": "gauge"
+      }
+    ],
+    "refresh": "30s",
+    "time": {"from": "now-1h", "to": "now"},
+    "timezone": "UTC"
+  }
+}

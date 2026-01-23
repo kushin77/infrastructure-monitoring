@@ -1,0 +1,28 @@
+{
+  "dashboard": {
+    "title": "Phase 5D Week 2 - News Feed Engine Overview",
+    "panels": [
+      {
+        "title": "Service Availability",
+        "targets": [{"expr": "up{job=\"news-feed-engine\"}"}],
+        "type": "stat"
+      },
+      {
+        "title": "Ingestion Lag",
+        "targets": [{"expr": "news_feed_ingestion_lag_seconds"}],
+        "type": "stat"
+      },
+      {
+        "title": "Error Rate",
+        "targets": [{"expr": "rate(news_feed_errors_total[5m])"}],
+        "type": "graph"
+      },
+      {
+        "title": "Kafka Consumer Lag",
+        "targets": [{"expr": "kafka_consumer_lag{job=\"news-feed-engine\"}"}],
+        "type": "graph"
+      }
+    ],
+    "refresh": "30s"
+  }
+}

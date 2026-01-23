@@ -1,0 +1,28 @@
+{
+  "dashboard": {
+    "title": "Phase 5D Week 1 - AI Chatbot Orchestrator Overview",
+    "panels": [
+      {
+        "title": "Service Status",
+        "targets": [{"expr": "up{job=\"ai-chatbot-orchestrator\"}"}],
+        "type": "stat"
+      },
+      {
+        "title": "Model Routing Success Rate",
+        "targets": [{"expr": "rate(chatbot_model_routing_success_total[5m]) / rate(chatbot_model_routing_attempts_total[5m])"}],
+        "type": "gauge"
+      },
+      {
+        "title": "Response Time by Model",
+        "targets": [{"expr": "histogram_quantile(0.95, rate(chatbot_response_duration_seconds_bucket[5m]))"}],
+        "type": "graph"
+      },
+      {
+        "title": "Cost Tracking",
+        "targets": [{"expr": "chatbot_total_cost_usd"}],
+        "type": "stat"
+      }
+    ],
+    "refresh": "30s"
+  }
+}

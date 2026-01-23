@@ -1,0 +1,510 @@
+{
+  "dashboard": {
+    "title": "Phase 5 & 5D Deployment Metrics",
+    "uid": "deployment-metrics-phase5-5d",
+    "tags": ["deployment", "phase5", "phase5d", "metrics", "observability"],
+    "timezone": "UTC",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 4},
+        "type": "stat",
+        "title": "Total Alerts Deployed",
+        "targets": [
+          {
+            "expr": "count(ALERTS{phase=~\"phase5|phase5d\"})",
+            "refId": "A",
+            "legendFormat": "Total Alerts"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 51, "color": "yellow"},
+                {"value": 88, "color": "orange"},
+                {"value": 159, "color": "green"}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 2,
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 4},
+        "type": "stat",
+        "title": "Platform Observability Coverage",
+        "targets": [
+          {
+            "expr": "(count(ALERTS{phase=~\"phase5|phase5d\"}) / 159) * 100",
+            "refId": "A",
+            "legendFormat": "Coverage %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "percentage",
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 30, "color": "yellow"},
+                {"value": 60, "color": "orange"},
+                {"value": 90, "color": "green"}
+              ]
+            },
+            "unit": "percent",
+            "max": 100
+          }
+        },
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 3,
+        "gridPos": {"x": 0, "y": 4, "w": 6, "h": 4},
+        "type": "stat",
+        "title": "Phase 5 Alerts (Target: 51)",
+        "targets": [
+          {
+            "expr": "count(ALERTS{phase=\"phase5\"})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 51, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": {"x": 6, "y": 4, "w": 6, "h": 4},
+        "type": "stat",
+        "title": "Phase 5D Week 1 (Target: 37)",
+        "targets": [
+          {
+            "expr": "count(ALERTS{phase=\"phase5d\",week=\"week1\"})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 37, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "gridPos": {"x": 12, "y": 4, "w": 6, "h": 4},
+        "type": "stat",
+        "title": "Phase 5D Week 2 (Target: 32)",
+        "targets": [
+          {
+            "expr": "count(ALERTS{phase=\"phase5d\",week=\"week2\"})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 32, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "gridPos": {"x": 18, "y": 4, "w": 6, "h": 4},
+        "type": "stat",
+        "title": "Phase 5D Week 3 (Target: 39)",
+        "targets": [
+          {
+            "expr": "count(ALERTS{phase=\"phase5d\",week=\"week3\"})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 39, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 6},
+        "type": "timeseries",
+        "title": "Alert Firing Rate (Last 24h)",
+        "targets": [
+          {
+            "expr": "sum(rate(prometheus_notifications_sent_total{phase=~\"phase5|phase5d\"}[5m])) by (phase)",
+            "refId": "A",
+            "legendFormat": "{{phase}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "fillOpacity": 10
+            },
+            "unit": "ops"
+          }
+        }
+      },
+      {
+        "id": 8,
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 6},
+        "type": "timeseries",
+        "title": "Alert Quality - True Positives vs False Positives",
+        "targets": [
+          {
+            "expr": "sum(rate(prometheus_rule_evaluations_total{result=\"true\",phase=~\"phase5|phase5d\"}[5m])) by (phase)",
+            "refId": "A",
+            "legendFormat": "True Positives - {{phase}}"
+          },
+          {
+            "expr": "sum(rate(prometheus_rule_evaluations_total{result=\"false\",phase=~\"phase5|phase5d\"}[5m])) by (phase)",
+            "refId": "B",
+            "legendFormat": "False Positives - {{phase}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "fillOpacity": 20
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "gridPos": {"x": 0, "y": 14, "w": 8, "h": 5},
+        "type": "stat",
+        "title": "Mean Time to Resolve (MTTR)",
+        "targets": [
+          {
+            "expr": "avg(prometheus_alert_duration_seconds{phase=~\"phase5|phase5d\"})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"value": null, "color": "green"},
+                {"value": 300, "color": "yellow"},
+                {"value": 600, "color": "orange"},
+                {"value": 900, "color": "red"}
+              ]
+            },
+            "unit": "s"
+          }
+        },
+        "options": {
+          "graphMode": "area",
+          "textMode": "value_and_name"
+        }
+      },
+      {
+        "id": 10,
+        "gridPos": {"x": 8, "y": 14, "w": 8, "h": 5},
+        "type": "stat",
+        "title": "Services Monitored",
+        "targets": [
+          {
+            "expr": "count(up{phase=~\"phase5|phase5d\"} == 1)",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 7, "color": "yellow"},
+                {"value": 10, "color": "orange"},
+                {"value": 16, "color": "green"}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 11,
+        "gridPos": {"x": 16, "y": 14, "w": 8, "h": 5},
+        "type": "stat",
+        "title": "Grafana Dashboards Active",
+        "targets": [
+          {
+            "expr": "count(grafana_dashboard_get{tag=~\"phase5|phase5d\"})",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                {"value": null, "color": "red"},
+                {"value": 12, "color": "yellow"},
+                {"value": 18, "color": "orange"},
+                {"value": 30, "color": "green"}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 12,
+        "gridPos": {"x": 0, "y": 19, "w": 24, "h": 7},
+        "type": "table",
+        "title": "Alert Rules by Service",
+        "targets": [
+          {
+            "expr": "count(ALERTS{phase=~\"phase5|phase5d\"}) by (service, phase, severity)",
+            "refId": "A",
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "severity"},
+              "properties": [
+                {
+                  "id": "custom.cellOptions",
+                  "value": {
+                    "type": "color-background",
+                    "mode": "basic"
+                  }
+                },
+                {
+                  "id": "mappings",
+                  "value": [
+                    {"options": {"critical": {"color": "red"}}, "type": "value"},
+                    {"options": {"warning": {"color": "yellow"}}, "type": "value"},
+                    {"options": {"info": {"color": "blue"}}, "type": "value"}
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 13,
+        "gridPos": {"x": 0, "y": 26, "w": 12, "h": 6},
+        "type": "timeseries",
+        "title": "Phase 5 Services Health (7 services)",
+        "targets": [
+          {
+            "expr": "up{phase=\"phase5\"}",
+            "refId": "A",
+            "legendFormat": "{{service}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2
+            },
+            "thresholds": {
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 14,
+        "gridPos": {"x": 12, "y": 26, "w": 12, "h": 6},
+        "type": "timeseries",
+        "title": "Phase 5D Services Health (9 services)",
+        "targets": [
+          {
+            "expr": "up{phase=\"phase5d\"}",
+            "refId": "A",
+            "legendFormat": "{{service}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineWidth": 2
+            },
+            "thresholds": {
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 1, "color": "green"}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 15,
+        "gridPos": {"x": 0, "y": 32, "w": 12, "h": 6},
+        "type": "bargauge",
+        "title": "Alert Distribution by Severity",
+        "targets": [
+          {
+            "expr": "count(ALERTS{phase=~\"phase5|phase5d\"}) by (severity)",
+            "refId": "A",
+            "legendFormat": "{{severity}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": null, "color": "blue"},
+                {"value": 20, "color": "yellow"},
+                {"value": 40, "color": "orange"},
+                {"value": 60, "color": "red"}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient"
+        }
+      },
+      {
+        "id": 16,
+        "gridPos": {"x": 12, "y": 32, "w": 12, "h": 6},
+        "type": "piechart",
+        "title": "Deployment Progress (%)",
+        "targets": [
+          {
+            "expr": "count(ALERTS{phase=\"phase5\"})",
+            "refId": "A",
+            "legendFormat": "Phase 5"
+          },
+          {
+            "expr": "count(ALERTS{phase=\"phase5d\",week=\"week1\"})",
+            "refId": "B",
+            "legendFormat": "Week 1"
+          },
+          {
+            "expr": "count(ALERTS{phase=\"phase5d\",week=\"week2\"})",
+            "refId": "C",
+            "legendFormat": "Week 2"
+          },
+          {
+            "expr": "count(ALERTS{phase=\"phase5d\",week=\"week3\"})",
+            "refId": "D",
+            "legendFormat": "Week 3"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          }
+        }
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "ALERTS{alertstate=\"firing\",phase=~\"phase5|phase5d\",severity=\"critical\"}",
+          "iconColor": "red",
+          "name": "Critical Alerts",
+          "tagKeys": "service,phase"
+        },
+        {
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "changes(prometheus_config_last_reload_success_timestamp{phase=~\"phase5|phase5d\"}[1m]) > 0",
+          "iconColor": "blue",
+          "name": "Config Reloads",
+          "tagKeys": "phase"
+        }
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "phase",
+          "type": "custom",
+          "options": [
+            {"text": "All", "value": "phase5|phase5d"},
+            {"text": "Phase 5", "value": "phase5"},
+            {"text": "Phase 5D", "value": "phase5d"}
+          ],
+          "current": {"text": "All", "value": "phase5|phase5d"}
+        },
+        {
+          "name": "week",
+          "type": "custom",
+          "options": [
+            {"text": "All", "value": ".*"},
+            {"text": "Week 1", "value": "week1"},
+            {"text": "Week 2", "value": "week2"},
+            {"text": "Week 3", "value": "week3"}
+          ],
+          "current": {"text": "All", "value": ".*"}
+        }
+      ]
+    }
+  },
+  "overwrite": true,
+  "message": "Deployment Metrics Dashboard for Phase 5 and Phase 5D",
+  "folderId": 0,
+  "folderUid": "",
+  "inputs": []
+}

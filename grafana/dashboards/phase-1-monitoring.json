@@ -1,0 +1,369 @@
+{
+  "dashboard": {
+    "title": "PHASE 1: Agent Intelligence Enhancement",
+    "description": "Real-time monitoring for Predictive Memory Monitor, Incident Patterns, Restart Manager, SSL Manager, and Dependency Manager",
+    "tags": ["phase-1", "agent-intelligence", "monitoring"],
+    "timezone": "UTC",
+    "refresh": "30s",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Memory Monitor - Predictions Per Hour",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(memory_monitor_predictions_total[1h])",
+            "legendFormat": "Predictions/hour",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(memory_monitor_false_positives_total[1h])",
+            "legendFormat": "False Positives/hour",
+            "refId": "B"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Memory Monitor - Prediction Confidence",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "avg(memory_monitor_confidence_score)",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 1,
+            "decimals": 2,
+            "unit": "percentunit",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "orange", "value": 0.75},
+                {"color": "green", "value": 0.85}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Memory Monitor - False Positive Rate",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "(increase(memory_monitor_false_positives_total[1h]) / increase(memory_monitor_predictions_total[1h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 1,
+            "decimals": 2,
+            "unit": "percentunit",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "orange", "value": 0.05},
+                {"color": "red", "value": 0.10}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Pattern Database - Prediction Accuracy",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "(increase(pattern_db_correct_predictions_total[1h]) / increase(pattern_db_predictions_total[1h]))",
+            "legendFormat": "Accuracy Rate",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Pattern Database - Size & Performance",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 8, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "pattern_db_size_bytes / 1048576",
+            "legendFormat": "DB Size (MB)",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Pattern Database - Query Latency (ms)",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 8, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "rate(pattern_db_query_duration_ms_sum[5m]) / rate(pattern_db_queries_total[5m])",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "decimals": 1,
+            "unit": "ms",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "orange", "value": 100},
+                {"color": "red", "value": 500}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Restart Manager - Restarts Per Hour",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(restart_manager_restarts_total[1h])",
+            "legendFormat": "{{ container_name }}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Restart Manager - Success Rate",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 16, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "(increase(restart_manager_successful_total[1h]) / increase(restart_manager_attempts_total[1h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 1,
+            "decimals": 2,
+            "unit": "percentunit",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "orange", "value": 0.95},
+                {"color": "green", "value": 0.99}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Restart Manager - Rate Limit Events",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 16, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "increase(restart_manager_rate_limited_total[24h])",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "decimals": 0,
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "orange", "value": 5},
+                {"color": "red", "value": 10}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "SSL Manager - Certificates by Expiry Status",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "count(ssl_certificate_days_remaining > 30)",
+            "legendFormat": "Healthy (>30 days)",
+            "refId": "A"
+          },
+          {
+            "expr": "count((ssl_certificate_days_remaining <= 30) and (ssl_certificate_days_remaining > 14))",
+            "legendFormat": "Warning (14-30 days)",
+            "refId": "B"
+          },
+          {
+            "expr": "count(ssl_certificate_days_remaining <= 14)",
+            "legendFormat": "Critical (<14 days)",
+            "refId": "C"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "SSL Manager - Min Days to Expiry",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 24, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "min(ssl_certificate_days_remaining)",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "decimals": 0,
+            "unit": "d",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": -1},
+                {"color": "orange", "value": 0},
+                {"color": "red", "value": 14},
+                {"color": "orange", "value": 30},
+                {"color": "green", "value": 45}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 12,
+        "title": "SSL Manager - Renewal Success Rate",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 24, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "(increase(ssl_renewal_successful_total[1h]) / increase(ssl_renewal_attempts_total[1h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 1,
+            "decimals": 2,
+            "unit": "percentunit",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "orange", "value": 0.90},
+                {"color": "green", "value": 0.99}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 13,
+        "title": "Dependency Manager - Vulnerabilities by Severity",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 32, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "count(dependency_vulnerabilities{severity=\"CRITICAL\"})",
+            "legendFormat": "CRITICAL",
+            "refId": "A"
+          },
+          {
+            "expr": "count(dependency_vulnerabilities{severity=\"HIGH\"})",
+            "legendFormat": "HIGH",
+            "refId": "B"
+          },
+          {
+            "expr": "count(dependency_vulnerabilities{severity=\"MEDIUM\"})",
+            "legendFormat": "MEDIUM",
+            "refId": "C"
+          },
+          {
+            "expr": "count(dependency_vulnerabilities{severity=\"LOW\"})",
+            "legendFormat": "LOW",
+            "refId": "D"
+          }
+        ]
+      },
+      {
+        "id": 14,
+        "title": "Dependency Manager - Outdated Dependencies",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 32, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "count(dependency_outdated > 0)",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "decimals": 0,
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "orange", "value": 10},
+                {"color": "red", "value": 20}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 15,
+        "title": "Dependency Manager - PR Merge Success Rate",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 32, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "(increase(dependency_pr_merged_total[1h]) / increase(dependency_pr_created_total[1h]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 1,
+            "decimals": 2,
+            "unit": "percentunit",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "orange", "value": 0.90},
+                {"color": "green", "value": 0.95}
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

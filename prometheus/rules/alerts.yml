@@ -1,0 +1,1704 @@
+# Prometheus Alerting Rules
+# Critical alerts for ElevatedIQ platform
+
+groups:
+  # Service Availability Alerts
+  - name: service_availability
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"analytics-api|devops-oracle"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been down for more than 1 minute."
+          runbook: "https://docs.elevatediq.ai/runbooks/service-down"
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: errors
+        annotations:
+          summary: "High error rate on {{ $labels.job }}"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+          runbook: "https://docs.elevatediq.ai/runbooks/high-error-rate"
+
+  # Performance Alerts
+  - name: performance
+    interval: 30s
+    rules:
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High latency on {{ $labels.job }}"
+          description: "95th percentile latency is {{ $value }}s (threshold: 1s)"
+
+      - alert: SlowQueries
+        expr: rate(pg_stat_activity_max_tx_duration{state="active"}[5m]) > 30
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Average query duration is {{ $value }}s"
+
+  # Resource Alerts
+  - name: resources
+    interval: 30s
+    rules:
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High memory usage on {{ $labels.name }}"
+          description: "Memory usage is {{ $value | humanizePercentage }} (threshold: 90%)"
+
+      - alert: HighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High CPU usage on {{ $labels.name }}"
+          description: "CPU usage is {{ $value | humanizePercentage }} (threshold: 80%)"
+
+      - alert: DiskSpaceWarning
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.2
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Available disk space is {{ $value | humanizePercentage }}"
+
+      - alert: DiskSpaceCritical
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Critical disk space on {{ $labels.instance }}"
+          description: "Available disk space is {{ $value | humanizePercentage }}"
+
+  # Database Alerts
+  - name: database
+    interval: 30s
+    rules:
+      - alert: DatabaseConnectionPoolNearLimit
+        expr: (pg_stat_database_numbackends / pg_settings_max_connections) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+        annotations:
+          summary: "Database connection pool near limit"
+          description: "Connection pool utilization is {{ $value | humanizePercentage }}"
+          runbook: "https://docs.elevatediq.ai/runbooks/connection-pool-exhausted"
+
+      - alert: DatabaseConnectionPoolExhausted
+        expr: (pg_stat_database_numbackends / pg_settings_max_connections) > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "Database connection pool exhausted"
+          description: "Connection pool utilization is {{ $value | humanizePercentage }}"
+          runbook: "https://docs.elevatediq.ai/runbooks/connection-pool-exhausted"
+
+      - alert: DatabaseDown
+        expr: up{job="postgresql"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "PostgreSQL has been unreachable for more than 1 minute"
+
+  # Rate Limiting Alerts
+  - name: rate_limiting
+    interval: 30s
+    rules:
+      - alert: HighRateLimitRejection
+        expr: rate(rate_limit_exceeded_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High rate of rate limit rejections"
+          description: "{{ $value }} requests/sec being rate limited"
+
+  # Incident Management Alerts
+  - name: incidents
+    interval: 60s
+    rules:
+      - alert: HighIncidentRate
+        expr: rate(incidents_created_total[1h]) > 5
+        for: 10m
+        labels:
+          severity: warning
+          category: operations
+        annotations:
+          summary: "High incident creation rate"
+          description: "{{ $value }} incidents created per hour (threshold: 5/hour)"
+
+      - alert: LongRunningIncident
+        expr: time() - incidents_open_timestamp_seconds > 3600
+        for: 5m
+        labels:
+          severity: warning
+          category: operations
+        annotations:
+          summary: "Incident open for over 1 hour"
+          description: "Incident {{ $labels.incident_id }} has been open for {{ $value | humanizeDuration }}"
+
+      - alert: MTTRIncreasing
+        expr: avg_over_time(incidents_mttr_seconds[24h]) > 1800
+        for: 1h
+        labels:
+          severity: warning
+          category: operations
+        annotations:
+          summary: "Mean Time To Resolution increasing"
+          description: "24h average MTTR is {{ $value | humanizeDuration }} (threshold: 30 minutes)"
+
+  # Trading Bot Alerts (if applicable)
+  - name: trading
+    interval: 30s
+    rules:
+      - alert: TradingBotHighRisk
+        expr: trading_bot_risk_level > 0.6
+        for: 5m
+        labels:
+          severity: critical
+          category: trading
+        annotations:
+          summary: "Trading bot risk level high"
+          description: "Risk level is {{ $value }} (threshold: 0.6)"
+
+      - alert: TradingBotNegativePNL
+        expr: trading_bot_pnl_24h < -1000
+        for: 30m
+        labels:
+          severity: warning
+          category: trading
+        annotations:
+          summary: "Trading bot 24h PNL negative"
+          description: "24h PNL is ${{ $value }}"
+
+  # AIOps Engine Alerts
+  - name: aiops_alerts
+    interval: 30s
+    rules:
+      - alert: AIOpsEngineDown
+        expr: up{job="aiops-engine"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: aiops
+          service: aiops-engine
+          team: ai-ops
+        annotations:
+          summary: "AIOps Engine is down"
+          description: "AIOps Engine service has been unreachable for more than 1 minute - anomaly detection is unavailable"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/aiops-engine-down"
+          dashboard_url: "http://dev.elevatediq.ai:3000/d/aiops-engine"
+          impact: "ML-based anomaly detection, predictive alerting, and auto-remediation are offline"
+
+      - alert: AIOpsAnomalyDetectionFailure
+        expr: rate(aiops_anomalies_detected_total[5m]) == 0 and rate(http_requests_total{job="aiops-engine"}[5m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+          category: aiops
+          service: aiops-engine
+          component: ml-model
+        annotations:
+          summary: "AIOps Engine not detecting anomalies"
+          description: "No anomalies detected in 10 minutes despite {{ $value }} requests/sec - ML model may be failing"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/aiops-anomaly-detection-failure"
+          impact: "Anomaly detection is disabled - only manual alerting is available"
+
+      - alert: AIOpsHighFalsePositiveRate
+        expr: (rate(aiops_remediation_actions_total{result="rolled_back"}[1h]) / rate(aiops_remediation_actions_total[1h])) > 0.15
+        for: 5m
+        labels:
+          severity: warning
+          category: aiops
+          component: remediation
+        annotations:
+          summary: "AIOps Engine high false positive rate"
+          description: "{{ $value | humanizePercentage }} of remediation actions were rolled back (threshold: 15%)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/aiops-false-positives"
+          action: "Review recent anomaly detections and retrain ML models"
+
+      - alert: AIOpsHighRemediationLatency
+        expr: histogram_quantile(0.95, rate(aiops_remediation_latency_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          category: aiops
+          component: remediation
+        annotations:
+          summary: "AIOps Engine remediation latency high"
+          description: "P95 remediation latency is {{ $value }}s (threshold: 30s)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/aiops-remediation-latency"
+
+      - alert: AIOpsModelAccuracyDegraded
+        expr: aiops_model_accuracy{model=~"anomaly|correlation|forecast"} < 0.7
+        for: 10m
+        labels:
+          severity: warning
+          category: aiops
+          component: ml-models
+        annotations:
+          summary: "AIOps {{ $labels.model }} model accuracy degraded"
+          description: "Model accuracy is {{ $value | humanizePercentage }} (threshold: 70%)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/aiops-model-retrain"
+          action: "Retrain {{ $labels.model }} model with recent data"
+
+      - alert: AIOpsAlertCorrelationFailure
+        expr: rate(aiops_alert_correlation_failures_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: aiops
+          component: correlation-engine
+        annotations:
+          summary: "AIOps alert correlation engine failing"
+          description: "{{ $value }} correlation failures per second"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/aiops-correlation-failure"
+
+      - alert: AIOpsRedisConnectivityIssue
+        expr: redis_connected_clients{instance=~".*aiops.*"} < 1
+        for: 2m
+        labels:
+          severity: warning
+          category: aiops
+          component: redis
+        annotations:
+          summary: "AIOps Engine Redis connectivity issue"
+          description: "AIOps Engine has lost connection to Redis"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/aiops-redis-issue"
+
+      - alert: AIOpsPrometheusScrapFailure
+        expr: up{job="prometheus",instance=~".*aiops.*"} == 0
+        for: 3m
+        labels:
+          severity: warning
+          category: aiops
+          component: prometheus
+        annotations:
+          summary: "AIOps Prometheus scrape failure"
+          description: "Prometheus is unable to scrape AIOps metrics"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/aiops-prometheus-scrape"
+
+      - alert: AIOpsHighCPUUsage
+        expr: (100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: aiops
+          component: resource-usage
+        annotations:
+          summary: "AIOps Engine high CPU usage"
+          description: "CPU usage is {{ $value }}% (threshold: 80%)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/aiops-high-cpu"
+
+      - alert: AIOpsHighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          category: aiops
+          component: resource-usage
+        annotations:
+          summary: "AIOps Engine high memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }} (threshold: 85%)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/aiops-high-memory"
+
+  # News Feed Engine Alerts
+  - name: news_feed_alerts
+    interval: 30s
+    rules:
+      - alert: NewsFeedEngineDown
+        expr: up{job="news-feed-engine"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: news-feed
+          service: news-feed-engine
+          team: content-platform
+        annotations:
+          summary: "News Feed Engine is down"
+          description: "News Feed Engine service has been unreachable for more than 1 minute - content ingestion and processing disabled"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/news-feed-engine-down"
+          dashboard_url: "http://dev.elevatediq.ai:3000/d/news-feed-engine"
+          impact: "Content ingestion, analysis, and video generation are offline"
+
+      - alert: NewsFeedIngestionFailure
+        expr: rate(news_feed_ingest_errors_total[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          category: news-feed
+          component: ingestion
+        annotations:
+          summary: "News Feed Engine ingestion errors high"
+          description: "{{ $value | humanize }} errors/sec in content ingestion (threshold: 0.1)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/news-feed-ingestion-failure"
+          impact: "Missing content from one or more platforms sources"
+
+      - alert: NewsFeedVideoGenerationFailure
+        expr: rate(news_feed_video_generation_failures_total[5m]) > 0.05
+        for: 15m
+        labels:
+          severity: warning
+          category: news-feed
+          component: video-generation
+        annotations:
+          summary: "News Feed Engine video generation failing"
+          description: "{{ $value | humanize }} video generation failures/sec (threshold: 0.05)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/news-feed-video-generation"
+          impact: "Automated video content not being produced"
+
+      - alert: NewsFeedAnalysisLatencyHigh
+        expr: histogram_quantile(0.95, rate(news_feed_analysis_duration_seconds_bucket[5m])) > 30
+        for: 10m
+        labels:
+          severity: warning
+          category: news-feed
+          component: analysis
+        annotations:
+          summary: "News Feed Engine analysis latency high"
+          description: "P95 analysis latency is {{ $value }}s (threshold: 30s)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/news-feed-analysis-latency"
+
+      - alert: NewsFeedPublishingFailure
+        expr: rate(news_feed_publishing_errors_total[5m]) > 0.02
+        for: 10m
+        labels:
+          severity: warning
+          category: news-feed
+          component: publishing
+        annotations:
+          summary: "News Feed Engine publishing errors"
+          description: "{{ $value | humanize }} publishing errors/sec (threshold: 0.02)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/news-feed-publishing-failure"
+          impact: "Content not being distributed to platforms"
+
+      - alert: NewsFeedDatabaseLatencyHigh
+        expr: histogram_quantile(0.95, rate(news_feed_db_query_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: news-feed
+          component: database
+        annotations:
+          summary: "News Feed Engine database latency high"
+          description: "P95 database latency is {{ $value }}s (threshold: 5s)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/news-feed-db-latency"
+
+      - alert: NewsFeedVideoQueueBacklog
+        expr: news_feed_video_queue_length > 1000
+        for: 15m
+        labels:
+          severity: warning
+          category: news-feed
+          component: queue
+        annotations:
+          summary: "News Feed Engine video queue backlog high"
+          description: "{{ $value }} videos queued for generation (threshold: 1000)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/news-feed-queue-backlog"
+          action: "Scale video generation workers"
+
+      - alert: NewsFeedElevenLabsAPIFailure
+        expr: rate(news_feed_elevenlabs_errors_total[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          category: news-feed
+          component: external-api
+        annotations:
+          summary: "News Feed Engine ElevenLabs API errors"
+          description: "ElevenLabs API errors {{ $value | humanize }}/sec (threshold: 0.01)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/news-feed-elevenlabs-failure"
+          impact: "TTS voice generation unavailable"
+
+      - alert: NewsFeedDIDAPIFailure
+        expr: rate(news_feed_did_errors_total[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          category: news-feed
+          component: external-api
+        annotations:
+          summary: "News Feed Engine D-ID API errors"
+          description: "D-ID API errors {{ $value | humanize }}/sec (threshold: 0.01)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/news-feed-did-failure"
+          impact: "Avatar video generation unavailable"
+
+      - alert: NewsFeedClaudeAPIFailure
+        expr: rate(news_feed_claude_errors_total[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          category: news-feed
+          component: external-api
+        annotations:
+          summary: "News Feed Engine Claude API errors"
+          description: "Claude API errors {{ $value | humanize }}/sec (threshold: 0.01)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/news-feed-claude-failure"
+          impact: "AI content analysis unavailable"
+
+      - alert: NewsFeedSocialMediaPublisherFailure
+        expr: rate(news_feed_social_publish_errors_total[5m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          category: news-feed
+          component: social-platforms
+        annotations:
+          summary: "News Feed Engine social media publishing failing"
+          description: "{{ $value | humanize }} social media publisher errors/sec (threshold: 0.05)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/news-feed-social-publish"
+
+      - alert: NewsFeedKafkaLatencyHigh
+        expr: histogram_quantile(0.95, rate(news_feed_kafka_produce_duration_seconds_bucket[5m])) > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: news-feed
+          component: kafka
+        annotations:
+          summary: "News Feed Engine Kafka latency high"
+          description: "P95 Kafka produce latency is {{ $value }}s (threshold: 2s)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/news-feed-kafka-latency"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # GATEWAY API ALERTS - API Gateway Service
+  # Service: gateway-api (Port 8095)
+  # Purpose: Central API routing, authentication, rate limiting
+  # Impact: Complete platform API access failure
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: gateway_api_alerts
+    interval: 30s
+    rules:
+      - alert: GatewayAPIDown
+        expr: up{job="gateway-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: gateway
+          service: gateway-api
+          team: platform
+        annotations:
+          summary: "Gateway API service is down"
+          description: "Gateway API has been down for more than 1 minute. All API traffic is blocked."
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-operations#gateway-down"
+          dashboard_url: "https://grafana.elevatediq.ai/d/gateway-api"
+          impact: "Complete platform API access failure - affects all clients"
+
+      - alert: GatewayHighErrorRate
+        expr: rate(gateway_requests_total{status=~"5.."}[5m]) / rate(gateway_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: gateway
+          component: routing
+          service: gateway-api
+        annotations:
+          summary: "Gateway API error rate > 5%"
+          description: "Gateway API error rate is {{ $value | humanizePercentage }} over last 5 minutes"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-operations#high-error-rate"
+          impact: "Degraded API reliability - {{ $value | humanizePercentage }} of requests failing"
+
+      - alert: GatewayHighLatency
+        expr: histogram_quantile(0.95, rate(gateway_request_duration_seconds_bucket[5m])) > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: gateway
+          component: routing
+          service: gateway-api
+        annotations:
+          summary: "Gateway API P95 latency > 2s"
+          description: "Gateway API P95 latency is {{ $value }}s (target: <1s)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-operations#high-latency"
+          impact: "Slow API responses affecting user experience"
+
+      - alert: GatewayRateLimitExceeded
+        expr: rate(gateway_rate_limit_exceeded_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: gateway
+          component: rate-limiting
+          service: gateway-api
+        annotations:
+          summary: "Gateway rate limit exceeded frequently"
+          description: "{{ $value }} requests/sec are being rate-limited"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-operations#rate-limit-exceeded"
+          impact: "Clients experiencing 429 Too Many Requests errors"
+
+      - alert: GatewayAuthenticationFailure
+        expr: rate(gateway_auth_failures_total[5m]) / rate(gateway_auth_attempts_total[5m]) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          category: gateway
+          component: authentication
+          service: gateway-api
+        annotations:
+          summary: "Gateway authentication failure rate > 10%"
+          description: "{{ $value | humanizePercentage }} of auth attempts are failing"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-operations#auth-failures"
+          impact: "Users unable to authenticate - potential credential issues"
+
+      - alert: GatewayCircuitBreakerOpen
+        expr: gateway_circuit_breaker_state{state="open"} > 0
+        for: 2m
+        labels:
+          severity: critical
+          category: gateway
+          component: circuit-breaker
+          service: gateway-api
+        annotations:
+          summary: "Gateway circuit breaker open for {{ $labels.backend }}"
+          description: "Circuit breaker for {{ $labels.backend }} has been open for 2+ minutes"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-operations#circuit-breaker-open"
+          impact: "Backend service {{ $labels.backend }} unavailable - requests failing fast"
+
+      - alert: GatewayBackendUnhealthy
+        expr: gateway_backend_health{status="unhealthy"} > 0
+        for: 3m
+        labels:
+          severity: warning
+          category: gateway
+          component: health-check
+          service: gateway-api
+        annotations:
+          summary: "Gateway backend {{ $labels.backend }} unhealthy"
+          description: "Backend {{ $labels.backend }} has been unhealthy for 3+ minutes"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-operations#backend-unhealthy"
+          impact: "Routing to {{ $labels.backend }} disabled - potential service degradation"
+
+      - alert: GatewayRedisConnectionFailure
+        expr: rate(gateway_redis_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: gateway
+          component: cache
+          service: gateway-api
+        annotations:
+          summary: "Gateway Redis connection issues"
+          description: "{{ $value }} Redis errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-operations#redis-connection-failure"
+          impact: "Rate limiting and caching degraded - fallback to in-memory"
+
+      - alert: GatewayHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="gateway-api"}[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: gateway
+          component: infrastructure
+          service: gateway-api
+        annotations:
+          summary: "Gateway API CPU usage > 80%"
+          description: "CPU usage is {{ $value }}% (sustained for 10+ minutes)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-operations#high-cpu-usage"
+          impact: "Potential performance degradation - consider horizontal scaling"
+
+      - alert: GatewayHighMemoryUsage
+        expr: process_resident_memory_bytes{job="gateway-api"} / 1024 / 1024 / 1024 > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: gateway
+          component: infrastructure
+          service: gateway-api
+        annotations:
+          summary: "Gateway API memory usage > 2GB"
+          description: "Memory usage is {{ $value }}GB (sustained for 10+ minutes)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-operations#high-memory-usage"
+          impact: "Potential memory leak - monitor for OOM events"
+
+      - alert: GatewayRequestQueueBacklog
+        expr: gateway_request_queue_depth > 1000
+        for: 5m
+        labels:
+          severity: warning
+          category: gateway
+          component: routing
+          service: gateway-api
+        annotations:
+          summary: "Gateway request queue backlog > 1000"
+          description: "Request queue depth is {{ $value }} (target: <100)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-operations#queue-backlog"
+          impact: "Requests queuing - increased latency and potential timeouts"
+
+      - alert: GatewayTokenValidationFailure
+        expr: rate(gateway_token_validation_failures_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: gateway
+          component: authentication
+          service: gateway-api
+        annotations:
+          summary: "Gateway JWT token validation failures"
+          description: "{{ $value }} token validation failures/sec"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/gateway-api-operations#token-validation-failure"
+          impact: "Users seeing authentication errors - check JWT secret/issuer"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SUPER ADMIN API ALERTS - Tenant Management & Billing Service
+  # Service: super-admin-api (Port 8090)
+  # Purpose: Tenant CRUD, billing, feature flags, audit logging
+  # Impact: Admin operations failure, billing disruption
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: super_admin_api_alerts
+    interval: 30s
+    rules:
+      - alert: SuperAdminAPIDown
+        expr: up{job="super-admin-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: super-admin
+          service: super-admin-api
+          team: platform
+        annotations:
+          summary: "Super Admin API service is down"
+          description: "Super Admin API has been down for more than 1 minute"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/super-admin-api-operations#service-down"
+          dashboard_url: "https://grafana.elevatediq.ai/d/super-admin-api"
+          impact: "Admin operations blocked - tenant provisioning, billing, feature flags unavailable"
+
+      - alert: SuperAdminHighErrorRate
+        expr: rate(super_admin_requests_total{status=~"5.."}[5m]) / rate(super_admin_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: super-admin
+          component: api
+          service: super-admin-api
+        annotations:
+          summary: "Super Admin API error rate > 5%"
+          description: "Error rate is {{ $value | humanizePercentage }} over last 5 minutes"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/super-admin-api-operations#high-error-rate"
+          impact: "Admin operations failing - tenant management degraded"
+
+      - alert: SuperAdminBillingTransactionFailure
+        expr: rate(super_admin_billing_failures_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          category: super-admin
+          component: billing
+          service: super-admin-api
+        annotations:
+          summary: "Super Admin billing transaction failures"
+          description: "{{ $value }} billing failures/sec (threshold: 0.01)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/super-admin-api-operations#billing-failures"
+          impact: "Billing transactions failing - revenue loss, customer disputes"
+
+      - alert: SuperAdminTenantProvisioningFailure
+        expr: rate(super_admin_tenant_provision_failures_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: super-admin
+          component: tenant-management
+          service: super-admin-api
+        annotations:
+          summary: "Super Admin tenant provisioning failures"
+          description: "{{ $value }} tenant provisioning failures/sec"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/super-admin-api-operations#tenant-provisioning-failures"
+          impact: "New tenant onboarding blocked"
+
+      - alert: SuperAdminFeatureFlagUpdateFailure
+        expr: rate(super_admin_feature_flag_update_failures_total[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          category: super-admin
+          component: feature-flags
+          service: super-admin-api
+        annotations:
+          summary: "Super Admin feature flag update failures"
+          description: "{{ $value }} feature flag update failures/sec"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/super-admin-api-operations#feature-flag-failures"
+          impact: "Feature flags not propagating - tenant feature control degraded"
+
+      - alert: SuperAdminAuditLogBacklog
+        expr: super_admin_audit_queue_depth > 10000
+        for: 10m
+        labels:
+          severity: warning
+          category: super-admin
+          component: audit-logging
+          service: super-admin-api
+        annotations:
+          summary: "Super Admin audit log queue backlog > 10K"
+          description: "Audit queue depth is {{ $value }} (target: <1000)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/super-admin-api-operations#audit-backlog"
+          impact: "Audit logs delayed - compliance risk"
+
+      - alert: SuperAdminDatabaseLatency
+        expr: histogram_quantile(0.95, rate(super_admin_db_query_duration_seconds_bucket[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+          category: super-admin
+          component: database
+          service: super-admin-api
+        annotations:
+          summary: "Super Admin database P95 latency > 1s"
+          description: "P95 query latency is {{ $value }}s (target: <500ms)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/super-admin-api-operations#database-latency"
+          impact: "Slow admin operations"
+
+      - alert: SuperAdminStripeAPIFailure
+        expr: rate(super_admin_stripe_errors_total[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: critical
+          category: super-admin
+          component: stripe-integration
+          service: super-admin-api
+        annotations:
+          summary: "Super Admin Stripe API errors"
+          description: "{{ $value }} Stripe API errors/sec (threshold: 0.01)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/super-admin-api-operations#stripe-api-failure"
+          impact: "Billing integration broken - subscriptions, payments failing"
+
+      - alert: SuperAdminRedisConnectionFailure
+        expr: rate(super_admin_redis_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: super-admin
+          component: cache
+          service: super-admin-api
+        annotations:
+          summary: "Super Admin Redis connection issues"
+          description: "{{ $value }} Redis errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/super-admin-api-operations#redis-connection-failure"
+          impact: "Feature flag caching degraded - increased database load"
+
+      - alert: SuperAdminHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="super-admin-api"}[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: super-admin
+          component: infrastructure
+          service: super-admin-api
+        annotations:
+          summary: "Super Admin API CPU usage > 80%"
+          description: "CPU usage is {{ $value }}% (sustained for 10+ minutes)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/super-admin-api-operations#high-cpu-usage"
+          impact: "Potential performance degradation"
+
+      - alert: SuperAdminHighMemoryUsage
+        expr: process_resident_memory_bytes{job="super-admin-api"} / 1024 / 1024 / 1024 > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: super-admin
+          component: infrastructure
+          service: super-admin-api
+        annotations:
+          summary: "Super Admin API memory usage > 2GB"
+          description: "Memory usage is {{ $value }}GB (sustained for 10+ minutes)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/super-admin-api-operations#high-memory-usage"
+          impact: "Potential memory leak - monitor for OOM events"
+
+      - alert: SuperAdminUserManagementFailure
+        expr: rate(super_admin_user_operation_failures_total[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          category: super-admin
+          component: user-management
+          service: super-admin-api
+        annotations:
+          summary: "Super Admin user management failures"
+          description: "{{ $value }} user operation failures/sec"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/super-admin-api-operations#user-management-failures"
+          impact: "User CRUD operations failing"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DEFRAG PORTAL ALERTS - Policy Enforcement UI
+  # Service: defrag-portal (Port 8900)
+  # Purpose: Policy enforcement visualization, intervention management, feedback
+  # Impact: Policy enforcement monitoring unavailable
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: defrag_portal_alerts
+    interval: 30s
+    rules:
+      - alert: DefragPortalDown
+        expr: up{job="defrag-portal"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: defrag-portal
+          service: defrag-portal
+          team: platform
+        annotations:
+          summary: "Defrag Portal service is down"
+          description: "Defrag Portal has been down for more than 1 minute"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/defrag-portal-operations#service-down"
+          dashboard_url: "https://grafana.elevatediq.ai/d/defrag-portal"
+          impact: "Policy enforcement UI unavailable - analysts cannot review interventions"
+
+      - alert: DefragPortalHighErrorRate
+        expr: rate(defrag_portal_requests_total{status=~"5.."}[5m]) / rate(defrag_portal_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: defrag-portal
+          component: api
+          service: defrag-portal
+        annotations:
+          summary: "Defrag Portal error rate > 5%"
+          description: "Error rate is {{ $value | humanizePercentage }} over last 5 minutes"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/defrag-portal-operations#high-error-rate"
+          impact: "Portal API requests failing - user experience degraded"
+
+      - alert: DefragPolicyEnforcementLatency
+        expr: histogram_quantile(0.95, rate(defrag_portal_policy_enforcement_duration_seconds_bucket[5m])) > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: defrag-portal
+          component: policy-enforcement
+          service: defrag-portal
+        annotations:
+          summary: "Defrag policy enforcement P95 latency > 2s"
+          description: "P95 enforcement latency is {{ $value }}s (target: <1s)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/defrag-portal-operations#high-latency"
+          impact: "Slow policy enforcement - delays in intervention decisions"
+
+      - alert: DefragInterventionFailureRate
+        expr: rate(defrag_portal_intervention_failures_total[5m]) / rate(defrag_portal_intervention_attempts_total[5m]) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          category: defrag-portal
+          component: interventions
+          service: defrag-portal
+        annotations:
+          summary: "Defrag intervention failure rate > 10%"
+          description: "{{ $value | humanizePercentage }} of interventions are failing"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/defrag-portal-operations#intervention-failures"
+          impact: "Policy enforcement degraded - interventions not being executed"
+
+      - alert: DefragFeedbackCaptureLoss
+        expr: rate(defrag_portal_feedback_capture_failures_total[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          category: defrag-portal
+          component: feedback
+          service: defrag-portal
+        annotations:
+          summary: "Defrag feedback capture failures"
+          description: "{{ $value }} feedback capture failures/sec (threshold: 0.01)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/defrag-portal-operations#feedback-capture-loss"
+          impact: "Analyst feedback not being captured - model improvement loop broken"
+
+      - alert: DefragDashboardPerformance
+        expr: histogram_quantile(0.95, rate(defrag_portal_dashboard_load_time_seconds_bucket[5m])) > 3
+        for: 10m
+        labels:
+          severity: warning
+          category: defrag-portal
+          component: dashboard
+          service: defrag-portal
+        annotations:
+          summary: "Defrag dashboard load time P95 > 3s"
+          description: "Dashboard load time is {{ $value }}s (target: <1s)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/defrag-portal-operations#dashboard-performance"
+          impact: "Slow dashboard loading - poor user experience"
+
+      - alert: DefragWebSocketConnectionFailure
+        expr: rate(defrag_portal_websocket_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: defrag-portal
+          component: websocket
+          service: defrag-portal
+        annotations:
+          summary: "Defrag WebSocket connection issues"
+          description: "{{ $value }} WebSocket errors/sec (threshold: 0.05)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/defrag-portal-operations#websocket-failure"
+          impact: "Real-time updates broken - analysts need to refresh manually"
+
+      - alert: DefragPostgresLatency
+        expr: histogram_quantile(0.95, rate(defrag_portal_postgres_query_duration_seconds_bucket[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          category: defrag-portal
+          component: database
+          service: defrag-portal
+        annotations:
+          summary: "Defrag Portal Postgres P95 latency > 500ms"
+          description: "Postgres query latency is {{ $value }}s (target: <200ms)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/defrag-portal-operations#postgres-latency"
+          impact: "Slow intervention queries - dashboard performance degraded"
+
+      - alert: DefragRedisConnectionFailure
+        expr: rate(defrag_portal_redis_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: defrag-portal
+          component: cache
+          service: defrag-portal
+        annotations:
+          summary: "Defrag Portal Redis connection issues"
+          description: "{{ $value }} Redis errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/defrag-portal-operations#redis-connection-failure"
+          impact: "Pub/sub messaging degraded - real-time updates delayed"
+
+      - alert: DefragHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="defrag-portal"}[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: defrag-portal
+          component: infrastructure
+          service: defrag-portal
+        annotations:
+          summary: "Defrag Portal CPU usage > 80%"
+          description: "CPU usage is {{ $value }}% (sustained for 10+ minutes)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/defrag-portal-operations#high-cpu-usage"
+          impact: "Potential performance degradation"
+
+      - alert: DefragHighMemoryUsage
+        expr: process_resident_memory_bytes{job="defrag-portal"} / 1024 / 1024 / 1024 > 1.5
+        for: 10m
+        labels:
+          severity: warning
+          category: defrag-portal
+          component: infrastructure
+          service: defrag-portal
+        annotations:
+          summary: "Defrag Portal memory usage > 1.5GB"
+          description: "Memory usage is {{ $value }}GB (sustained for 10+ minutes)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/defrag-portal-operations#high-memory-usage"
+          impact: "Potential memory leak - monitor for OOM events"
+
+  # Appsmith Admin Portal Alerts (Service #8)
+  - name: appsmith_admin_portal_alerts
+    interval: 30s
+    rules:
+      - alert: AppsmithDown
+        expr: up{job="appsmith"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: appsmith
+          service: appsmith-admin-portal
+          team: platform
+        annotations:
+          summary: "Appsmith Admin Portal is down"
+          description: "Appsmith has been down for more than 1 minute. Admin dashboard unavailable."
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/appsmith-operations#appsmith-down"
+          dashboard_url: "https://grafana.elevatediq.ai/d/appsmith/appsmith-admin-portal"
+          impact: "Complete admin dashboard access failure - all admin operations blocked"
+
+      - alert: AppsmithHighErrorRate
+        expr: rate(appsmith_http_errors_total[5m]) / rate(appsmith_http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: appsmith
+          component: application
+          service: appsmith-admin-portal
+        annotations:
+          summary: "Appsmith error rate > 5%"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/appsmith-operations#high-error-rate"
+          impact: "Admin operations failing - user experience degraded"
+
+      - alert: AppsmithHighLatency
+        expr: histogram_quantile(0.95, rate(appsmith_http_duration_seconds_bucket[5m])) > 3
+        for: 10m
+        labels:
+          severity: warning
+          category: appsmith
+          component: performance
+          service: appsmith-admin-portal
+        annotations:
+          summary: "Appsmith P95 latency > 3s"
+          description: "P95 latency is {{ $value }}s (target: <1s)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/appsmith-operations#high-latency"
+          impact: "Slow dashboard loading - poor admin experience"
+
+      - alert: AppsmithMongoDBConnectionFailure
+        expr: rate(appsmith_mongodb_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          category: appsmith
+          component: database
+          service: appsmith-admin-portal
+        annotations:
+          summary: "Appsmith MongoDB connection issues"
+          description: "{{ $value }} MongoDB errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/appsmith-operations#mongodb-connection-failure"
+          impact: "Dashboard state loss - apps not loading, configurations not persisting"
+
+      - alert: AppsmithOAuthFailure
+        expr: rate(appsmith_oauth_failures_total[5m]) / rate(appsmith_oauth_attempts_total[5m]) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          category: appsmith
+          component: authentication
+          service: appsmith-admin-portal
+        annotations:
+          summary: "Appsmith OAuth failure rate > 10%"
+          description: "OAuth failure rate is {{ $value | humanizePercentage }} (threshold: 10%)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/appsmith-operations#oauth-failure"
+          impact: "Users unable to login - Google OAuth integration broken"
+
+      - alert: AppsmithWidgetLoadFailure
+        expr: rate(appsmith_widget_load_failures_total[5m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          category: appsmith
+          component: widgets
+          service: appsmith-admin-portal
+        annotations:
+          summary: "Appsmith widget load failures"
+          description: "{{ $value }} widget failures/sec (threshold: 0.05)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/appsmith-operations#widget-load-failure"
+          impact: "Dashboard components not rendering - incomplete UI"
+
+      - alert: AppsmithAPIConnectionFailure
+        expr: rate(appsmith_datasource_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          category: appsmith
+          component: datasources
+          service: appsmith-admin-portal
+        annotations:
+          summary: "Appsmith datasource connection failures"
+          description: "{{ $value }} datasource errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/appsmith-operations#api-connection-failure"
+          impact: "Backend API connections broken - data not loading in dashboards"
+
+      - alert: AppsmithRedisConnectionFailure
+        expr: rate(appsmith_redis_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: appsmith
+          component: cache
+          service: appsmith-admin-portal
+        annotations:
+          summary: "Appsmith Redis connection issues"
+          description: "{{ $value }} Redis errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/appsmith-operations#redis-connection-failure"
+          impact: "Session management degraded - users may experience logouts"
+
+      - alert: AppsmithHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="appsmith"}[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: appsmith
+          component: infrastructure
+          service: appsmith-admin-portal
+        annotations:
+          summary: "Appsmith CPU usage > 80%"
+          description: "CPU usage is {{ $value }}% (sustained for 10+ minutes)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/appsmith-operations#high-cpu-usage"
+          impact: "Potential performance degradation"
+
+      - alert: AppsmithHighMemoryUsage
+        expr: process_resident_memory_bytes{job="appsmith"} / 1024 / 1024 / 1024 > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: appsmith
+          component: infrastructure
+          service: appsmith-admin-portal
+        annotations:
+          summary: "Appsmith memory usage > 2GB"
+          description: "Memory usage is {{ $value }}GB (sustained for 10+ minutes)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/appsmith-operations#high-memory-usage"
+          impact: "Potential memory leak - monitor for OOM events"
+
+      - alert: AppsmithDeploymentFailure
+        expr: rate(appsmith_deployment_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: appsmith
+          component: deployment
+          service: appsmith-admin-portal
+        annotations:
+          summary: "Appsmith app deployment failures"
+          description: "App deployments failing ({{ $value }} failures/sec)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/appsmith-operations#deployment-failure"
+          impact: "Admin cannot publish dashboard changes - workflow blocked"
+
+      - alert: AppsmithBackupFailure
+        expr: time() - appsmith_last_backup_timestamp > 86400
+        for: 1h
+        labels:
+          severity: warning
+          category: appsmith
+          component: backup
+          service: appsmith-admin-portal
+        annotations:
+          summary: "Appsmith backup overdue"
+          description: "Last backup was {{ $value | humanizeDuration }} ago (threshold: 24h)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/appsmith-operations#backup-failure"
+          impact: "Data loss risk - MongoDB not being backed up regularly"
+
+  # EIP Portal Alerts (Service #9) - Enterprise Integration Platform Gateway
+  - name: eip_portal_alerts
+    interval: 30s
+    rules:
+      - alert: EIPGatewayDown
+        expr: up{job="eip-gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: eip
+          service: eip-portal
+          team: platform
+        annotations:
+          summary: "EIP Gateway is down"
+          description: "EIP Gateway has been down for more than 1 minute"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/eip-operations#gateway-down"
+          impact: "EIP Portal inaccessible - all tool integrations offline"
+
+      - alert: EIPHighErrorRate
+        expr: rate(eip_gateway_errors_total[5m]) / rate(eip_gateway_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: eip
+          component: gateway
+          service: eip-portal
+        annotations:
+          summary: "EIP Gateway error rate > 5%"
+          description: "Error rate is {{ $value | humanizePercentage }}"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/eip-operations#high-error-rate"
+          impact: "Tool integrations failing - platform features degraded"
+
+      - alert: EIPHighLatency
+        expr: histogram_quantile(0.95, rate(eip_gateway_duration_seconds_bucket[5m])) > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: eip
+          component: performance
+          service: eip-portal
+        annotations:
+          summary: "EIP Gateway P95 latency > 2s"
+          description: "P95 latency is {{ $value }}s (target: <500ms)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/eip-operations#high-latency"
+          impact: "Slow portal loading - poor user experience"
+
+      - alert: EIPWebSocketConnectionFailure
+        expr: rate(eip_websocket_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: eip
+          component: websocket
+          service: eip-portal
+        annotations:
+          summary: "EIP WebSocket connection failures"
+          description: "{{ $value }} WebSocket errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/eip-operations#websocket-failure"
+          impact: "Real-time updates broken - tool status not live"
+
+      - alert: EIPToolRegistryFailure
+        expr: rate(eip_tool_registry_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          category: eip
+          component: tool-registry
+          service: eip-portal
+        annotations:
+          summary: "EIP Tool Registry failures"
+          description: "{{ $value }} tool registry errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/eip-operations#tool-registry-failure"
+          impact: "Tool discovery broken - new tools not visible"
+
+      - alert: EIPAppsmithProxyFailure
+        expr: rate(eip_appsmith_proxy_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          category: eip
+          component: proxy
+          service: eip-portal
+        annotations:
+          summary: "EIP Appsmith proxy failures"
+          description: "{{ $value }} proxy errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/eip-operations#proxy-failure"
+          impact: "Appsmith backend not reachable - dashboards not loading"
+
+      - alert: EIPRateLimitExceeded
+        expr: rate(eip_rate_limit_exceeded_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: eip
+          component: rate-limiter
+          service: eip-portal
+        annotations:
+          summary: "EIP rate limit exceeded"
+          description: "{{ $value }} rate limit violations/sec"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/eip-operations#rate-limit-exceeded"
+          impact: "Users being throttled - requests rejected"
+
+      - alert: EIPRedisConnectionFailure
+        expr: rate(eip_redis_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: eip
+          component: cache
+          service: eip-portal
+        annotations:
+          summary: "EIP Redis connection issues"
+          description: "{{ $value }} Redis errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/eip-operations#redis-connection-failure"
+          impact: "WebSocket hub degraded - real-time updates delayed"
+
+      - alert: EIPHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="eip-gateway"}[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: eip
+          component: infrastructure
+          service: eip-portal
+        annotations:
+          summary: "EIP Gateway CPU usage > 80%"
+          description: "CPU usage is {{ $value }}%"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/eip-operations#high-cpu-usage"
+          impact: "Potential performance degradation"
+
+      - alert: EIPHighMemoryUsage
+        expr: process_resident_memory_bytes{job="eip-gateway"} / 1024 / 1024 / 1024 > 1
+        for: 10m
+        labels:
+          severity: warning
+          category: eip
+          component: infrastructure
+          service: eip-portal
+        annotations:
+          summary: "EIP Gateway memory usage > 1GB"
+          description: "Memory usage is {{ $value }}GB"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/eip-operations#high-memory-usage"
+          impact: "Potential memory leak"
+
+      - alert: EIPWidgetServerFailure
+        expr: rate(eip_widget_server_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: eip
+          component: widgets
+          service: eip-portal
+        annotations:
+          summary: "EIP Widget Server failures"
+          description: "{{ $value }} widget server errors/sec"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/eip-operations#widget-server-failure"
+          impact: "Custom widgets not rendering"
+
+      - alert: EIPMetricsAggregationFailure
+        expr: rate(eip_metrics_aggregation_errors_total[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          category: eip
+          component: metrics
+          service: eip-portal
+        annotations:
+          summary: "EIP metrics aggregation failures"
+          description: "{{ $value }} aggregation errors/sec"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/eip-operations#metrics-aggregation-failure"
+          impact: "Dashboard metrics stale - not showing current data"
+
+  # RoundRobin Core Alerts (Service #1) - Core Platform Service
+  - name: roundrobin_core_alerts
+    interval: 30s
+    rules:
+      - alert: RoundRobinCoreDown
+        expr: up{job="roundrobin-core"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: core
+          service: roundrobin-core
+          team: platform
+        annotations:
+          summary: "RoundRobin Core service is down"
+          description: "Core platform service has been down for more than 1 minute"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/roundrobin-core-operations#core-down"
+          dashboard_url: "https://grafana.elevatediq.ai/d/roundrobin-core/roundrobin-core"
+          impact: "Complete platform failure - all operations blocked"
+
+      - alert: RoundRobinHighErrorRate
+        expr: rate(roundrobin_core_errors_total[5m]) / rate(roundrobin_core_requests_total[5m]) > 0.03
+        for: 5m
+        labels:
+          severity: critical
+          category: core
+          component: api
+          service: roundrobin-core
+        annotations:
+          summary: "RoundRobin Core error rate > 3%"
+          description: "Error rate is {{ $value | humanizePercentage }}"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/roundrobin-core-operations#high-error-rate"
+          impact: "Core operations failing - platform degraded"
+
+      - alert: RoundRobinHighLatency
+        expr: histogram_quantile(0.95, rate(roundrobin_core_duration_seconds_bucket[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+          category: core
+          component: performance
+          service: roundrobin-core
+        annotations:
+          summary: "RoundRobin Core P95 latency > 1s"
+          description: "P95 latency is {{ $value }}s (target: <500ms)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/roundrobin-core-operations#high-latency"
+          impact: "Slow platform operations"
+
+      - alert: RoundRobinDatabaseConnectionFailure
+        expr: rate(roundrobin_core_database_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          category: core
+          component: database
+          service: roundrobin-core
+        annotations:
+          summary: "RoundRobin Core database connection failures"
+          description: "{{ $value }} database errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/roundrobin-core-operations#database-failure"
+          impact: "Data persistence broken - platform state loss"
+
+      - alert: RoundRobinAuthenticationFailure
+        expr: rate(roundrobin_core_auth_failures_total[5m]) / rate(roundrobin_core_auth_attempts_total[5m]) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          category: core
+          component: authentication
+          service: roundrobin-core
+        annotations:
+          summary: "RoundRobin Core auth failure rate > 10%"
+          description: "Auth failure rate is {{ $value | humanizePercentage }}"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/roundrobin-core-operations#auth-failure"
+          impact: "Users unable to authenticate"
+
+      - alert: RoundRobinJobProcessingBacklog
+        expr: roundrobin_core_job_queue_depth > 1000
+        for: 15m
+        labels:
+          severity: warning
+          category: core
+          component: jobs
+          service: roundrobin-core
+        annotations:
+          summary: "RoundRobin Core job backlog > 1000"
+          description: "Job queue depth is {{ $value }} (threshold: 1000)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/roundrobin-core-operations#job-backlog"
+          impact: "Background jobs delayed - async operations slow"
+
+      - alert: RoundRobinSecretManagerFailure
+        expr: rate(roundrobin_core_secret_manager_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          category: core
+          component: secrets
+          service: roundrobin-core
+        annotations:
+          summary: "RoundRobin Core secret manager failures"
+          description: "{{ $value }} secret manager errors/sec"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/roundrobin-core-operations#secret-manager-failure"
+          impact: "Secret retrieval failing - services unable to authenticate"
+
+      - alert: RoundRobinRedisConnectionFailure
+        expr: rate(roundrobin_core_redis_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: core
+          component: cache
+          service: roundrobin-core
+        annotations:
+          summary: "RoundRobin Core Redis connection issues"
+          description: "{{ $value }} Redis errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/roundrobin-core-operations#redis-connection-failure"
+          impact: "Caching degraded - performance impacted"
+
+      - alert: RoundRobinHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="roundrobin-core"}[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: core
+          component: infrastructure
+          service: roundrobin-core
+        annotations:
+          summary: "RoundRobin Core CPU usage > 80%"
+          description: "CPU usage is {{ $value }}%"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/roundrobin-core-operations#high-cpu-usage"
+          impact: "Potential performance degradation"
+
+      - alert: RoundRobinHighMemoryUsage
+        expr: process_resident_memory_bytes{job="roundrobin-core"} / 1024 / 1024 / 1024 > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: core
+          component: infrastructure
+          service: roundrobin-core
+        annotations:
+          summary: "RoundRobin Core memory usage > 2GB"
+          description: "Memory usage is {{ $value }}GB"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/roundrobin-core-operations#high-memory-usage"
+          impact: "Potential memory leak"
+
+      - alert: RoundRobinCLIFailure
+        expr: rate(roundrobin_core_cli_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: core
+          component: cli
+          service: roundrobin-core
+        annotations:
+          summary: "RoundRobin Core CLI (rrctl) failures"
+          description: "{{ $value }} CLI errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/roundrobin-core-operations#cli-failure"
+          impact: "Automation scripts failing - rrctl commands not working"
+
+      - alert: RoundRobinTenantIsolationFailure
+        expr: rate(roundrobin_core_tenant_isolation_violations_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: core
+          component: security
+          service: roundrobin-core
+        annotations:
+          summary: "RoundRobin Core tenant isolation violations"
+          description: "{{ $value }} isolation violations/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/roundrobin-core-operations#tenant-isolation-failure"
+          impact: "SECURITY BREACH - Tenant data may be cross-contaminated"
+
+  # AI Chatbot Orchestrator Alerts (Service #2)
+  - name: ai_chatbot_orchestrator_alerts
+    interval: 30s
+    rules:
+      - alert: AIChatbotDown
+        expr: up{job="ai-chatbot-orchestrator"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: ai
+          service: ai-chatbot-orchestrator
+          team: ai-ml
+        annotations:
+          summary: "AI Chatbot Orchestrator is down"
+          description: "Chatbot service has been down for more than 1 minute"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/ai-chatbot-operations#chatbot-down"
+          impact: "All AI chat functionality unavailable"
+
+      - alert: AIChatbotHighErrorRate
+        expr: rate(ai_chatbot_errors_total[5m]) / rate(ai_chatbot_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          category: ai
+          component: orchestrator
+          service: ai-chatbot-orchestrator
+        annotations:
+          summary: "AI Chatbot error rate > 5%"
+          description: "Error rate is {{ $value | humanizePercentage }}"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/ai-chatbot-operations#high-error-rate"
+          impact: "Chat queries failing - poor AI experience"
+
+      - alert: AIChatbotHighLatency
+        expr: histogram_quantile(0.95, rate(ai_chatbot_query_duration_seconds_bucket[5m])) > 5
+        for: 10m
+        labels:
+          severity: warning
+          category: ai
+          component: performance
+          service: ai-chatbot-orchestrator
+        annotations:
+          summary: "AI Chatbot P95 latency > 5s"
+          description: "P95 query latency is {{ $value }}s (target: <3s)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/ai-chatbot-operations#high-latency"
+          impact: "Slow AI responses - poor user experience"
+
+      - alert: AIChatbotModelFailure
+        expr: rate(ai_chatbot_model_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          category: ai
+          component: model
+          service: ai-chatbot-orchestrator
+        annotations:
+          summary: "AI Chatbot model failures"
+          description: "{{ $value }} model errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/ai-chatbot-operations#model-failure"
+          impact: "AI models not responding - queries failing"
+
+      - alert: AIChatbotOllamaConnectionFailure
+        expr: rate(ai_chatbot_ollama_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: ai
+          component: ollama
+          service: ai-chatbot-orchestrator
+        annotations:
+          summary: "AI Chatbot Ollama connection failures"
+          description: "{{ $value }} Ollama errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/ai-chatbot-operations#ollama-failure"
+          impact: "Local inference broken - falling back to cloud (cost increase)"
+
+      - alert: AIChatbotClaudeAPIFailure
+        expr: rate(ai_chatbot_claude_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: ai
+          component: claude
+          service: ai-chatbot-orchestrator
+        annotations:
+          summary: "AI Chatbot Claude API failures"
+          description: "{{ $value }} Claude API errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/ai-chatbot-operations#claude-failure"
+          impact: "Claude queries failing - degraded AI quality"
+
+      - alert: AIChatbotContextStorageFailure
+        expr: rate(ai_chatbot_redis_errors_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: ai
+          component: context
+          service: ai-chatbot-orchestrator
+        annotations:
+          summary: "AI Chatbot context storage failures"
+          description: "{{ $value }} Redis errors/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/ai-chatbot-operations#context-failure"
+          impact: "Conversation context lost - degraded chat quality"
+
+      - alert: AIChatbotCostExceeded
+        expr: rate(ai_chatbot_cost_dollars_total[1h]) > 100
+        for: 15m
+        labels:
+          severity: warning
+          category: ai
+          component: finops
+          service: ai-chatbot-orchestrator
+        annotations:
+          summary: "AI Chatbot cost exceeds $100/hour"
+          description: "Current cost: ${{ $value }}/hour (threshold: $100)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/ai-chatbot-operations#cost-exceeded"
+          impact: "High AI costs - investigate usage patterns"
+
+      - alert: AIChatbotContextTTLExceeded
+        expr: histogram_quantile(0.95, rate(ai_chatbot_context_age_seconds_bucket[5m])) > 3600
+        for: 10m
+        labels:
+          severity: warning
+          category: ai
+          component: context
+          service: ai-chatbot-orchestrator
+        annotations:
+          summary: "AI Chatbot context TTL exceeded"
+          description: "P95 context age is {{ $value }}s (threshold: 3600s)"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/ai-chatbot-operations#context-ttl-exceeded"
+          impact: "Stale contexts - chat quality degraded"
+
+      - alert: AIChatbotHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="ai-chatbot-orchestrator"}[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: ai
+          component: infrastructure
+          service: ai-chatbot-orchestrator
+        annotations:
+          summary: "AI Chatbot CPU usage > 80%"
+          description: "CPU usage is {{ $value }}%"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/ai-chatbot-operations#high-cpu-usage"
+          impact: "Potential performance degradation"
+
+      - alert: AIChatbotHighMemoryUsage
+        expr: process_resident_memory_bytes{job="ai-chatbot-orchestrator"} / 1024 / 1024 / 1024 > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: ai
+          component: infrastructure
+          service: ai-chatbot-orchestrator
+        annotations:
+          summary: "AI Chatbot memory usage > 2GB"
+          description: "Memory usage is {{ $value }}GB"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/ai-chatbot-operations#high-memory-usage"
+          impact: "Potential memory leak"
+
+      - alert: AIChatbotTenantQuotaExceeded
+        expr: rate(ai_chatbot_quota_exceeded_total[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          category: ai
+          component: quota
+          service: ai-chatbot-orchestrator
+        annotations:
+          summary: "AI Chatbot tenant quota exceeded"
+          description: "{{ $value }} quota violations/sec detected"
+          runbook_url: "https://wiki.elevatediq.ai/runbooks/ai-chatbot-operations#quota-exceeded"
+          impact: "Tenants hitting usage limits - requests throttled"

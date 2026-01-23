@@ -1,0 +1,83 @@
+groups:
+  - name: prompt-metrics
+    interval: 30s
+    rules:
+      # High error rate alert
+      - alert: PromptHighErrorRate
+        expr: |
+          sum(rate(elevatediq_prompts_executions_total{status="failure"}[5m])) by (prompt_id)
+          /
+          sum(rate(elevatediq_prompts_executions_total[5m])) by (prompt_id)
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: prompts
+        annotations:
+          summary: "High error rate for prompt {{ $labels.prompt_id }}"
+          description: "Prompt {{ $labels.prompt_id }} has error rate above 5% for the last 5 minutes"
+
+      # Slow execution alert
+      - alert: PromptSlowExecution
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(elevatediq_prompts_execution_latency_seconds_bucket[5m])) by (le, prompt_id)
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: prompts
+        annotations:
+          summary: "Slow execution for prompt {{ $labels.prompt_id }}"
+          description: "p95 latency for prompt {{ $labels.prompt_id }} exceeds 10 seconds"
+
+      # Low cache hit rate
+      - alert: PromptLowCacheHitRate
+        expr: |
+          sum(rate(elevatediq_prompts_cache_hits_total[1h])) by (prompt_id)
+          /
+          (sum(rate(elevatediq_prompts_cache_hits_total[1h])) by (prompt_id) + sum(rate(elevatediq_prompts_cache_misses_total[1h])) by (prompt_id))
+          < 0.30
+        for: 30m
+        labels:
+          severity: info
+          component: prompts
+        annotations:
+          summary: "Low cache hit rate for prompt {{ $labels.prompt_id }}"
+          description: "Cache hit rate for prompt {{ $labels.prompt_id }} is below 30%"
+
+      # High API cost alert
+      - alert: PromptHighCostAlert
+        expr: |
+          sum(increase(elevatediq_prompts_total_cost_usd[24h])) > 100
+        for: 1h
+        labels:
+          severity: warning
+          component: prompts
+        annotations:
+          summary: "High API cost for prompts"
+          description: "Total prompt API cost in the last 24 hours exceeds $100"
+
+      # No executions (possible outage)
+      - alert: PromptNoExecutions
+        expr: |
+          sum(rate(elevatediq_prompts_executions_total[5m])) < 0.1
+        for: 10m
+        labels:
+          severity: critical
+          component: prompts
+        annotations:
+          summary: "No prompt executions detected"
+          description: "Prompt execution rate dropped below 0.1 requests/sec for 10 minutes"
+
+      # Cache overflow
+      - alert: PromptCacheOverflow
+        expr: |
+          sum(elevatediq_prompts_cache_size) > 10000
+        for: 5m
+        labels:
+          severity: warning
+          component: prompts
+        annotations:
+          summary: "Prompt cache size exceeds limit"
+          description: "Cache now contains {{ $value }} entries (limit: 10000)"

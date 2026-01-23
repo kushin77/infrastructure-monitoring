@@ -1,0 +1,165 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "dashboard": {
+    "id": null,
+    "uid": "jaeger-trace-analytics",
+    "title": "Jaeger Trace Analytics",
+    "tags": ["jaeger", "traces", "analytics"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "1m",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Traces per Minute",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 6},
+        "targets": [{
+          "expr": "rate(jaeger_collector_traces_received_total[1m]) * 60",
+          "legendFormat": "Traces/min",
+          "refId": "A"
+        }]
+      },
+      {
+        "id": 2,
+        "title": "Spans per Minute",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 6},
+        "targets": [{
+          "expr": "rate(jaeger_collector_spans_received_total[1m]) * 60",
+          "legendFormat": "Spans/min",
+          "refId": "A"
+        }]
+      },
+      {
+        "id": 3,
+        "title": "Spans per Trace (Histogram)",
+        "type": "histogram",
+        "gridPos": {"x": 0, "y": 6, "w": 12, "h": 6},
+        "targets": [{
+          "expr": "jaeger_collector_spans_per_trace",
+          "refId": "A"
+        }],
+        "options": {
+          "bucketDataBound": "upper"
+        }
+      },
+      {
+        "id": 4,
+        "title": "Trace Size Distribution (bytes)",
+        "type": "histogram",
+        "gridPos": {"x": 12, "y": 6, "w": 12, "h": 6},
+        "targets": [{
+          "expr": "jaeger_collector_traces_size_bytes",
+          "refId": "A"
+        }]
+      },
+      {
+        "id": 5,
+        "title": "Operation Breakdown (Pie Chart)",
+        "type": "piechart",
+        "gridPos": {"x": 0, "y": 12, "w": 12, "h": 6},
+        "targets": [{
+          "expr": "sum(jaeger_collector_spans_received_total) by (operation)",
+          "refId": "A",
+          "instant": true
+        }],
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right"},
+          "pieType": "pie"
+        }
+      },
+      {
+        "id": 6,
+        "title": "Service Distribution (Pie Chart)",
+        "type": "piechart",
+        "gridPos": {"x": 12, "y": 12, "w": 12, "h": 6},
+        "targets": [{
+          "expr": "sum(jaeger_collector_spans_received_total) by (service_name)",
+          "refId": "A",
+          "instant": true
+        }],
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right"},
+          "pieType": "donut"
+        }
+      },
+      {
+        "id": 7,
+        "title": "Error Trace Heatmap",
+        "type": "heatmap",
+        "gridPos": {"x": 0, "y": 18, "w": 12, "h": 6},
+        "targets": [{
+          "expr": "sum(increase(jaeger_collector_spans_received_total{status=\"error\"}[1m])) by (service_name)",
+          "refId": "A",
+          "format": "time_series"
+        }],
+        "options": {
+          "calculate": true,
+          "yAxis": {"format": "short"}
+        }
+      },
+      {
+        "id": 8,
+        "title": "Duration Heatmap (seconds)",
+        "type": "heatmap",
+        "gridPos": {"x": 12, "y": 18, "w": 12, "h": 6},
+        "targets": [{
+          "expr": "sum(increase(jaeger_collector_spans_duration_seconds_bucket[1m])) by (le)",
+          "refId": "A",
+          "format": "heatmap"
+        }],
+        "options": {
+          "calculate": false,
+          "yAxis": {"format": "s", "logBase": 2}
+        }
+      },
+      {
+        "id": 9,
+        "title": "Trace Success Rate (%)",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 24, "w": 6, "h": 3},
+        "targets": [{
+          "expr": "(sum(rate(jaeger_collector_traces_received_total[5m])) - sum(rate(jaeger_collector_spans_received_total{status=\"error\"}[5m]))) / sum(rate(jaeger_collector_traces_received_total[5m])) * 100",
+          "refId": "A"
+        }],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 95, "color": "yellow"},
+                {"value": 99, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Average Trace Depth",
+        "type": "stat",
+        "gridPos": {"x": 6, "y": 24, "w": 6, "h": 3},
+        "targets": [{
+          "expr": "avg(jaeger_collector_spans_per_trace)",
+          "refId": "A"
+        }]
+      },
+      {
+        "id": 11,
+        "title": "Storage Operations (ops/sec)",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 24, "w": 12, "h": 6},
+        "targets": [{
+          "expr": "rate(jaeger_storage_operations_total[5m])",
+          "legendFormat": "{{operation}}",
+          "refId": "A"
+        }]
+      }
+    ]
+  }
+}

@@ -1,0 +1,331 @@
+{
+  "id": null,
+  "list": [
+    {
+      "name": "gpu",
+      "label": "GPU",
+      "type": "query",
+      "datasource": "Prometheus",
+      "query": "label_values(DCGM_FI_DEV_GPU_UTIL, gpu)",
+      "refresh": 1,
+      "includeAll": true,
+      "multi": true,
+      "current": {
+        "text": "All",
+        "value": "$__all"
+      }
+    },
+    {
+      "name": "model",
+      "label": "Model",
+      "type": "query",
+      "datasource": "Prometheus",
+      "query": "label_values(ollama_requests_total, model)",
+      "refresh": 1,
+      "includeAll": true,
+      "multi": true,
+      "current": {
+        "text": "All",
+        "value": "$__all"
+      }
+    }
+  ]
+  "title": "Ollama GPU & Throughput",
+  "timezone": "browser",
+  "version": 1,
+  "schemaVersion": 38,
+  "refresh": "30s",
+  "tags": [
+    "ollama",
+    "gpu",
+    "elevatediq"
+  ],
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "expr": "avg(DCGM_FI_DEV_GPU_UTIL{gpu=~\"$gpu\"})",
+    "10s",
+    "30s",
+    "1m",
+    "5m"
+  ],
+  "time_options": [
+    "1h",
+    "6h",
+    "12h",
+    "24h"
+  ]
+},
+"templating": {
+  "list": []
+},
+"panels": [
+  {
+    "type": "stat",
+    "title": "GPU Utilization (%)",
+    "id": 1,
+    "gridPos": {
+      "h": 4,
+      "w": 6,
+      "x": 0,
+      "y": 0
+    },
+    "datasource": "Prometheus",
+    "targets": [
+      {
+        "expr": "avg(DCGM_FI_DEV_GPU_UTIL)",
+        "legendFormat": "util",
+        "refId": "A"
+      }
+    ],
+    "expr": "sum(DCGM_FI_DEV_FB_USED{gpu=~\"$gpu\"}) / 1024 / 1024 / 1024",
+    "defaults": {
+      "unit": "percent",
+      "max": 100,
+      "min": 0
+    }
+  },
+  "options": {
+    "reduceOptions": {
+      "calcs": [
+        "lastNotNull"
+      ]
+    },
+    "colorMode": "value",
+    "textMode": "value"
+  }
+},
+{
+  "type": "stat",
+  "title": "VRAM Used (GiB)",
+  "id": 2,
+  "gridPos": {
+    "h": 4,
+    "w": 6,
+    "x": 6,
+    "y": 0
+  },
+  "datasource": "Prometheus",
+  "targets": [
+    {
+      "expr": "sum(DCGM_FI_DEV_FB_USED) / 1024 / 1024 / 1024",
+      "legendFormat": "vram used",
+      "refId": "A""expr": "max(DCGM_FI_DEV_GPU_TEMP{gpu=~\"$gpu\"})",
+    ],
+    "fieldConfig": {
+      "defaults": {
+        "unit": "gbytes"
+      }
+    },
+    "options": {
+      "reduceOptions": {
+        "calcs": [
+          "lastNotNull"
+        ]
+      },
+      "colorMode": "value",
+      "textMode": "value"
+    }
+  },
+  {
+    "type": "stat",
+    "title": "GPU Temp (°C)",
+    "id": 3,
+    "gridPos": {
+      "h": 4,
+      "w": 6,
+      "x": 12,
+      "y": 0
+    },
+    "datasource": "Prometheus",
+    "targets": [
+      {
+        "expr": "max(DCGM_FI_DEV_GPU_TEMP)",
+        "legendFormat": "temp",
+        "refId": "A""expr": "avg(DCGM_FI_DEV_POWER_USAGE{gpu=~\"$gpu\"})",
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "textMode": "value"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "GPU Power (W)",
+      "id": 4,
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "avg(DCGM_FI_DEV_POWER_USAGE)",
+          "legendFormat": "power",
+          "refId": "A""expr": "avg by (gpu) (DCGM_FI_DEV_GPU_UTIL{gpu=~\"$gpu\"})",
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "watt"
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ]
+          },
+          "colorMode": "value",
+          "textMode": "value"
+        }
+      },
+      {
+        "type": "timeseries",
+        "title": "GPU Utilization over time",
+        "id": 5,
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 4
+        },
+        "datasource": "Prometheus",
+        "targets": [
+          "expr": "sum by (gpu) (DCGM_FI_DEV_FB_USED{gpu=~\"$gpu\"}) / 1024 / 1024 / 1024",
+          "expr": "avg by (gpu) (DCGM_FI_DEV_GPU_UTIL)",
+          "legendFormat": "gpu={{gpu}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "VRAM Used over time",
+      "id": 6,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "datasource": "Prometheus",
+      "targets": [
+        "expr": "sum by (model) (rate(ollama_requests_total{model=~\"$model\"}[5m]))",
+        "expr": "sum by (gpu) (DCGM_FI_DEV_FB_USED) / 1024 / 1024 / 1024",
+        "legendFormat": "gpu={{gpu}}",
+        "refId": "A"
+      }
+    ],
+    "fieldConfig": {
+      "defaults": {
+        "unit": "gbytes"
+      }
+    },
+    "options": {
+      "legend": {
+        "displayMode": "table"
+      }
+    }
+  },
+  {
+    "type": "timeseries",
+    "expr": "histogram_quantile(0.95, sum by (le, model) (rate(ollama_request_duration_seconds_bucket{model=~\"$model\"}[5m])))",
+    "id": 7,
+    "gridPos": {
+      "h": 8,
+      "w": 12,
+      "x": 0,
+      "y": 12
+    },
+    "datasource": "Prometheus",
+    "targets": [
+      {
+        "expr": "rate(ollama_requests_total[5m])",
+        "legendFormat": "req/s",
+        "refId": "A"
+      }
+    ]
+  },
+  {
+    "type": "timeseries",
+    "title": "Ollama Latency (p95, seconds)",
+    "id": 8,
+    "gridPos": {
+      "h": 8,
+      "w": 12,
+      "x": 12,
+      "y": 12
+    },
+    "datasource": "Prometheus",
+    "targets": [
+      {
+        "expr": "histogram_quantile(0.95, sum by (le) (rate(ollama_request_duration_seconds_bucket[5m])))",
+        "legendFormat": "p95",
+        "refId": "A"
+      }
+    ],
+    "fieldConfig": {
+      "defaults": {
+        "unit": "s"
+      }
+    }
+  },
+  {
+    "type": "stat",
+    "title": "Ollama Error Rate (%)",
+    "id": 9,
+    "gridPos": {
+      "h": 4,
+      "w": 6,
+      "x": 0,
+      "y": 20
+    },
+    "datasource": "Prometheus",
+    "targets": [
+      {
+        "expr": "100 * (rate(ollama_requests_total{status=~\"5..\"}[5m]) / rate(ollama_requests_total[5m]))",
+        "legendFormat": "5xx %",
+        "refId": "A"
+      }
+    ],
+    "fieldConfig": {
+      "defaults": {
+        "unit": "percent"
+      }
+    },
+    "options": {
+      "reduceOptions": {
+        "calcs": [
+          "lastNotNull"
+        ]
+      },
+      "colorMode": "value",
+      "textMode": "value"
+    }
+  }
+]
+}

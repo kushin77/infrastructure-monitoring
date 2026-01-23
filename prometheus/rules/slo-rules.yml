@@ -1,0 +1,308 @@
+---
+# SLO Recording Rules - ElevatedIQ Platform
+# These rules pre-compute SLI metrics for fast dashboard queries and alerting
+
+groups:
+  # Availability SLO Recording Rules
+  - name: slo_availability
+    interval: 30s
+    rules:
+      # Analytics API Availability
+      - record: slo:analytics_api:availability:ratio_rate5m
+        expr: |
+          sum(rate(http_requests_total{job="analytics-api",status=~"2..|3.."}[5m]))
+          / sum(rate(http_requests_total{job="analytics-api"}[5m]))
+
+      - record: slo:analytics_api:availability:ratio_rate1h
+        expr: |
+          sum(rate(http_requests_total{job="analytics-api",status=~"2..|3.."}[1h]))
+          / sum(rate(http_requests_total{job="analytics-api"}[1h]))
+
+      - record: slo:analytics_api:availability:ratio_rate6h
+        expr: |
+          sum(rate(http_requests_total{job="analytics-api",status=~"2..|3.."}[6h]))
+          / sum(rate(http_requests_total{job="analytics-api"}[6h]))
+
+      - record: slo:analytics_api:availability:ratio_rate30d
+        expr: |
+          sum(rate(http_requests_total{job="analytics-api",status=~"2..|3.."}[30d]))
+          / sum(rate(http_requests_total{job="analytics-api"}[30d]))
+
+      # DevOps Oracle Availability
+      - record: slo:devops_oracle:availability:ratio_rate5m
+        expr: |
+          sum(rate(http_requests_total{job="devops-oracle",status=~"2..|3.."}[5m]))
+          / sum(rate(http_requests_total{job="devops-oracle"}[5m]))
+
+      - record: slo:devops_oracle:availability:ratio_rate1h
+        expr: |
+          sum(rate(http_requests_total{job="devops-oracle",status=~"2..|3.."}[1h]))
+          / sum(rate(http_requests_total{job="devops-oracle"}[1h]))
+
+      - record: slo:devops_oracle:availability:ratio_rate6h
+        expr: |
+          sum(rate(http_requests_total{job="devops-oracle",status=~"2..|3.."}[6h]))
+          / sum(rate(http_requests_total{job="devops-oracle"}[6h]))
+
+      - record: slo:devops_oracle:availability:ratio_rate30d
+        expr: |
+          sum(rate(http_requests_total{job="devops-oracle",status=~"2..|3.."}[30d]))
+          / sum(rate(http_requests_total{job="devops-oracle"}[30d]))
+
+      # Platform-wide Availability (all services)
+      - record: slo:platform:availability:ratio_rate5m
+        expr: |
+          sum(rate(http_requests_total{tier="backend",status=~"2..|3.."}[5m]))
+          / sum(rate(http_requests_total{tier="backend"}[5m]))
+
+      - record: slo:platform:availability:ratio_rate30d
+        expr: |
+          sum(rate(http_requests_total{tier="backend",status=~"2..|3.."}[30d]))
+          / sum(rate(http_requests_total{tier="backend"}[30d]))
+
+  # Latency SLO Recording Rules
+  - name: slo_latency
+    interval: 30s
+    rules:
+      # Analytics API Latency
+      - record: slo:analytics_api:latency:p50_5m
+        expr: |
+          histogram_quantile(0.50,
+            rate(http_request_duration_seconds_bucket{job="analytics-api"}[5m]))
+
+      - record: slo:analytics_api:latency:p95_5m
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{job="analytics-api"}[5m]))
+
+      - record: slo:analytics_api:latency:p99_5m
+        expr: |
+          histogram_quantile(0.99,
+            rate(http_request_duration_seconds_bucket{job="analytics-api"}[5m]))
+
+      - record: slo:analytics_api:latency:p95_1h
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{job="analytics-api"}[1h]))
+
+      # DevOps Oracle Latency
+      - record: slo:devops_oracle:latency:p50_5m
+        expr: |
+          histogram_quantile(0.50,
+            rate(http_request_duration_seconds_bucket{job="devops-oracle"}[5m]))
+
+      - record: slo:devops_oracle:latency:p95_5m
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{job="devops-oracle"}[5m]))
+
+      - record: slo:devops_oracle:latency:p99_5m
+        expr: |
+          histogram_quantile(0.99,
+            rate(http_request_duration_seconds_bucket{job="devops-oracle"}[5m]))
+
+      # Database Query Latency
+      - record: slo:postgres:latency:p95_5m
+        expr: |
+          histogram_quantile(0.95,
+            rate(pg_stat_statements_mean_exec_time_seconds_bucket[5m]))
+
+      - record: slo:postgres:latency:p99_5m
+        expr: |
+          histogram_quantile(0.99,
+            rate(pg_stat_statements_mean_exec_time_seconds_bucket[5m]))
+
+  # Error Budget Recording Rules
+  - name: slo_error_budget
+    interval: 1m
+    rules:
+      # Analytics API Error Budget
+      - record: slo:analytics_api:error_budget:remaining_ratio
+        expr: |
+          1 - ((1 - slo:analytics_api:availability:ratio_rate30d) / (1 - 0.999))
+
+      - record: slo:analytics_api:error_budget:remaining_seconds
+        expr: |
+          slo:analytics_api:error_budget:remaining_ratio * 30 * 24 * 3600
+
+      - record: slo:analytics_api:error_budget:burn_rate_1h
+        expr: |
+          (1 - slo:analytics_api:availability:ratio_rate1h) / (1 - 0.999)
+
+      - record: slo:analytics_api:error_budget:burn_rate_6h
+        expr: |
+          (1 - slo:analytics_api:availability:ratio_rate6h) / (1 - 0.999)
+
+      # DevOps Oracle Error Budget
+      - record: slo:devops_oracle:error_budget:remaining_ratio
+        expr: |
+          1 - ((1 - slo:devops_oracle:availability:ratio_rate30d) / (1 - 0.999))
+
+      - record: slo:devops_oracle:error_budget:remaining_seconds
+        expr: |
+          slo:devops_oracle:error_budget:remaining_ratio * 30 * 24 * 3600
+
+      - record: slo:devops_oracle:error_budget:burn_rate_1h
+        expr: |
+          (1 - slo:devops_oracle:availability:ratio_rate1h) / (1 - 0.999)
+
+      - record: slo:devops_oracle:error_budget:burn_rate_6h
+        expr: |
+          (1 - slo:devops_oracle:availability:ratio_rate6h) / (1 - 0.999)
+
+      # Platform-wide Error Budget
+      - record: slo:platform:error_budget:remaining_ratio
+        expr: |
+          1 - ((1 - slo:platform:availability:ratio_rate30d) / (1 - 0.999))
+
+  # Error Rate Recording Rules
+  - name: slo_error_rate
+    interval: 30s
+    rules:
+      # 5xx Error Rates
+      - record: slo:analytics_api:error_rate:5xx_5m
+        expr: |
+          rate(http_requests_total{job="analytics-api",status=~"5.."}[5m])
+          / rate(http_requests_total{job="analytics-api"}[5m])
+
+      - record: slo:devops_oracle:error_rate:5xx_5m
+        expr: |
+          rate(http_requests_total{job="devops-oracle",status=~"5.."}[5m])
+          / rate(http_requests_total{job="devops-oracle"}[5m])
+
+      - record: slo:platform:error_rate:5xx_5m
+        expr: |
+          sum(rate(http_requests_total{tier="backend",status=~"5.."}[5m]))
+          / sum(rate(http_requests_total{tier="backend"}[5m]))
+
+      # 4xx Error Rates (monitored but not SLO)
+      - record: slo:analytics_api:error_rate:4xx_5m
+        expr: |
+          rate(http_requests_total{job="analytics-api",status=~"4.."}[5m])
+          / rate(http_requests_total{job="analytics-api"}[5m])
+
+      - record: slo:devops_oracle:error_rate:4xx_5m
+        expr: |
+          rate(http_requests_total{job="devops-oracle",status=~"4.."}[5m])
+          / rate(http_requests_total{job="devops-oracle"}[5m])
+
+  # Throughput Recording Rules
+  - name: slo_throughput
+    interval: 30s
+    rules:
+      # Request rates
+      - record: slo:analytics_api:throughput:rps_1m
+        expr: |
+          rate(http_requests_total{job="analytics-api"}[1m])
+
+      - record: slo:analytics_api:throughput:rps_5m
+        expr: |
+          rate(http_requests_total{job="analytics-api"}[5m])
+
+      - record: slo:devops_oracle:throughput:rps_1m
+        expr: |
+          rate(http_requests_total{job="devops-oracle"}[1m])
+
+      - record: slo:devops_oracle:throughput:rps_5m
+        expr: |
+          rate(http_requests_total{job="devops-oracle"}[5m])
+
+      # Peak throughput tracking
+      - record: slo:analytics_api:throughput:peak_rps_5m
+        expr: |
+          max_over_time(rate(http_requests_total{job="analytics-api"}[1m])[5m:])
+
+      # Capacity utilization (vs 1000 rps target)
+      - record: slo:analytics_api:throughput:capacity_utilization
+        expr: |
+          slo:analytics_api:throughput:rps_5m / 1000
+
+  # Database SLI Recording Rules
+  - name: slo_database
+    interval: 30s
+    rules:
+      # Connection pool health
+      - record: slo:postgres:connection_pool:utilization
+        expr: |
+          pg_stat_activity_count / pg_settings_max_connections
+
+      # Slow query rate
+      - record: slo:postgres:slow_queries:rate_5m
+        expr: |
+          rate(pg_slow_queries_total[5m])
+
+      # Replication lag
+      - record: slo:postgres:replication:lag_seconds
+        expr: |
+          pg_replication_lag_seconds
+
+      # Database availability
+      - record: slo:postgres:availability:ratio_rate5m
+        expr: |
+          avg(up{job="postgres-exporter"})
+
+  # Incident Metrics Recording Rules
+  - name: slo_incident_metrics
+    interval: 1m
+    rules:
+      # MTTR by severity
+      - record: slo:incidents:mttr:p1_24h
+        expr: |
+          avg_over_time(incident_resolution_duration_seconds{severity="P1"}[24h])
+
+      - record: slo:incidents:mttr:p2_24h
+        expr: |
+          avg_over_time(incident_resolution_duration_seconds{severity="P2"}[24h])
+
+      # Incident rate
+      - record: slo:incidents:rate:total_1h
+        expr: |
+          rate(incidents_total[1h])
+
+      # Detection time
+      - record: slo:incidents:detection_time:avg_24h
+        expr: |
+          avg_over_time(incident_detection_duration_seconds[24h])
+
+  # SLO Compliance Recording Rules
+  - name: slo_compliance
+    interval: 5m
+    rules:
+      # Availability compliance (1 = meeting SLO, 0 = breaching)
+      - record: slo:analytics_api:compliance:availability
+        expr: |
+          slo:analytics_api:availability:ratio_rate30d >= 0.999
+
+      - record: slo:devops_oracle:compliance:availability
+        expr: |
+          slo:devops_oracle:availability:ratio_rate30d >= 0.999
+
+      # Latency compliance
+      - record: slo:analytics_api:compliance:latency_p95
+        expr: |
+          slo:analytics_api:latency:p95_5m <= 0.2
+
+      - record: slo:devops_oracle:compliance:latency_p95
+        expr: |
+          slo:devops_oracle:latency:p95_5m <= 0.5
+
+      # Error rate compliance
+      - record: slo:analytics_api:compliance:error_rate
+        expr: |
+          slo:analytics_api:error_rate:5xx_5m <= 0.001
+
+      - record: slo:devops_oracle:compliance:error_rate
+        expr: |
+          slo:devops_oracle:error_rate:5xx_5m <= 0.001
+
+      # Overall SLO compliance score (0-100%)
+      - record: slo:platform:compliance:overall_score
+        expr: |
+          (
+            slo:analytics_api:compliance:availability +
+            slo:analytics_api:compliance:latency_p95 +
+            slo:analytics_api:compliance:error_rate +
+            slo:devops_oracle:compliance:availability +
+            slo:devops_oracle:compliance:latency_p95 +
+            slo:devops_oracle:compliance:error_rate
+          ) / 6 * 100

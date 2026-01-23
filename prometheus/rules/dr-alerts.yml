@@ -1,0 +1,215 @@
+---
+# Disaster Recovery Alert Rules
+# Monitoring for backup health, replication, and DR readiness
+
+groups:
+  - name: disaster_recovery_backup
+    interval: 5m
+    rules:
+      - alert: BackupTooOld
+        expr: backup_age_seconds{type="database"} > 21600
+        for: 5m
+        labels:
+          severity: critical
+          component: backup
+        annotations:
+          summary: "Database backup is >6 hours old"
+          description: |
+            Last backup was {{ $value | humanizeDuration }} ago.
+            RPO requirement is 5 minutes for critical data.
+            ACTION: Check backup cron jobs and GCS connectivity.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Backup-Failure-Response"
+
+      - alert: BackupVerificationFailed
+        expr: backup_verification{bucket=~".*"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: backup
+        annotations:
+          summary: "Backup verification failed for {{ $labels.pattern }}"
+          description: |
+            Unable to verify backup integrity for bucket {{ $labels.bucket }}.
+            This indicates backup corruption or download issues.
+            ACTION: Manually verify backup, check GCS permissions.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Backup-Verification-Failure"
+
+      - alert: BackupSizeTooSmall
+        expr: backup_size_bytes < 1000000
+        for: 10m
+        labels:
+          severity: warning
+          component: backup
+        annotations:
+          summary: "Backup size suspiciously small (<1MB)"
+          description: |
+            Backup size is {{ $value | humanize }}B, which is abnormally small.
+            This may indicate partial backup or backup failure.
+            ACTION: Review backup logs, check disk space.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Backup-Size-Anomaly"
+
+  - name: disaster_recovery_replication
+    interval: 1m
+    rules:
+      - alert: ReplicationLagHigh
+        expr: database_replication_lag_seconds > 60
+        for: 10m
+        labels:
+          severity: warning
+          component: replication
+        annotations:
+          summary: "Database replication lag >1 minute"
+          description: |
+            Replication is {{ $value }} seconds behind primary.
+            This increases RPO and risks data loss in failover.
+            ACTION: Check standby health, network connectivity, write load.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Replication-Lag-Troubleshooting"
+
+      - alert: ReplicationLagCritical
+        expr: database_replication_lag_seconds > 300
+        for: 5m
+        labels:
+          severity: critical
+          component: replication
+        annotations:
+          summary: "Database replication lag >5 minutes (CRITICAL)"
+          description: |
+            Replication is {{ $value | humanizeDuration }} behind.
+            RPO is at risk. Failover would result in data loss.
+            ACTION: Emergency investigation required, consider stopping writes.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Critical-Replication-Lag"
+
+      - alert: ReplicationBroken
+        expr: pg_stat_replication_connected == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: replication
+        annotations:
+          summary: "Database replication connection broken"
+          description: |
+            Standby database is not connected to primary.
+            Failover capability is lost. Data loss risk in primary failure.
+            ACTION: Check standby status, network connectivity, restart replication.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Replication-Broken"
+
+  - name: disaster_recovery_testing
+    interval: 24h
+    rules:
+      - alert: DRDrillOverdue
+        expr: (time() - dr_drill_timestamp_seconds) > 2678400
+        for: 1h
+        labels:
+          severity: warning
+          component: dr-testing
+        annotations:
+          summary: "DR drill not run in >30 days"
+          description: |
+            Last DR drill was {{ $value | humanizeDuration }} ago.
+            Regular DR testing ensures readiness for actual disasters.
+            ACTION: Schedule and execute DR drill.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Schedule-DR-Drill"
+
+      - alert: DRDrillFailed
+        expr: dr_drill_overall_success == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: dr-testing
+        annotations:
+          summary: "DR drill failed"
+          description: |
+            Latest DR drill did not complete successfully.
+            Disaster recovery capability is compromised.
+            ACTION: Review drill logs, fix identified issues, re-run drill.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/DR-Drill-Failure-Response"
+
+      - alert: BackupRestoreTestFailed
+        expr: backup_restore_test_success == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: dr-testing
+        annotations:
+          summary: "Backup restore test failed"
+          description: |
+            Unable to restore from latest backup.
+            Backups may be corrupted or restore procedure broken.
+            ACTION: Emergency - verify all recent backups, fix restore issues.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Restore-Test-Failure"
+
+  - name: disaster_recovery_capacity
+    interval: 5m
+    rules:
+      - alert: WALArchiveStorageLow
+        expr: (gcs_bucket_size_bytes{bucket="elevatediq-wal-archive"} / gcs_bucket_quota_bytes) > 0.8
+        for: 30m
+        labels:
+          severity: warning
+          component: storage
+        annotations:
+          summary: "WAL archive storage >80% full"
+          description: |
+            WAL archive bucket is {{ $value | humanizePercentage }} full.
+            Risk of archive failures if storage fills up.
+            ACTION: Clean up old WAL files, increase bucket size.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/WAL-Storage-Management"
+
+      - alert: BackupStorageLow
+        expr: (gcs_bucket_size_bytes{bucket=~".*backup.*"} / gcs_bucket_quota_bytes) > 0.85
+        for: 1h
+        labels:
+          severity: warning
+          component: storage
+        annotations:
+          summary: "Backup storage >85% full"
+          description: |
+            Backup bucket {{ $labels.bucket }} is {{ $value | humanizePercentage }} full.
+            Future backups may fail if storage exhausted.
+            ACTION: Review retention policy, expand storage, cleanup old backups.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Backup-Storage-Management"
+
+  - name: disaster_recovery_rto
+    interval: 1m
+    rules:
+      - alert: DatabaseDowntimeExceedsRTO
+        expr: (time() - postgres_up_timestamp_seconds) > 900 and postgres_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: availability
+        annotations:
+          summary: "Database downtime exceeds 15-minute RTO"
+          description: |
+            Database has been down for {{ $value | humanizeDuration }}.
+            RTO of 15 minutes has been breached.
+            ACTION: Initiate emergency failover if not already in progress.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/RTO-Breach-Response"
+
+      - alert: FailoverDurationExceedsTarget
+        expr: db_failover_duration_seconds > 600
+        for: 1m
+        labels:
+          severity: warning
+          component: failover
+        annotations:
+          summary: "Last failover took >10 minutes"
+          description: |
+            Database failover completed in {{ $value | humanizeDuration }}.
+            Target is <5 minutes. This breached RTO.
+            ACTION: Review failover logs, optimize procedure, update runbook.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Slow-Failover-Investigation"
+
+      - alert: RestoreDurationExceedsTarget
+        expr: dr_drill_database_restore_duration_seconds > 3600
+        for: 5m
+        labels:
+          severity: warning
+          component: restore
+        annotations:
+          summary: "Database restore took >1 hour"
+          description: |
+            Last restore operation took {{ $value | humanizeDuration }}.
+            This exceeds target restore time for P2 services.
+            ACTION: Optimize restore procedure, consider incremental restores.
+          runbook: "https://github.com/kushin77/elevatedIQ/wiki/Optimize-Restore-Performance"

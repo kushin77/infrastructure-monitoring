@@ -1,0 +1,11 @@
+groups:
+  - name: ollama.rules
+    rules:
+      - alert: OllamaDown
+        expr: ollama_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ollama is unreachable on {{ $labels.instance }}"
+          description: "Ollama health check is failing (ollama_up == 0) for more than 2 minutes. Investigate host and network connectivity."

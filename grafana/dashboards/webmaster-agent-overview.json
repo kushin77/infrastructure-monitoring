@@ -1,0 +1,117 @@
+{
+  "uid": "webmaster-agent-overview",
+  "title": "Webmaster Agent - Overview",
+  "tags": ["webmaster", "agent", "elevatediq"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Endpoints Monitored",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "count(webmaster_endpoint_health)",
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"}
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Endpoints Down",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(webmaster_endpoint_health == 0)",
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"}
+        }
+      ],
+      "fieldConfig": {"defaults": {"mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}}
+    },
+    {
+      "type": "timeseries",
+      "title": "Endpoint Response Time (P95)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(webmaster_endpoint_response_time_seconds_bucket[5m])) by (le, endpoint))",
+          "legendFormat": "{{endpoint}}",
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"}
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "SSL Certificate Days Remaining",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "transformations": [
+        {"id": "seriesToColumns"}
+      ],
+      "targets": [
+        {
+          "expr": "webmaster_endpoint_ssl_days_remaining",
+          "legendFormat": "{{endpoint}}",
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"}
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Lighthouse Performance Score",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [
+        {
+          "expr": "webmaster_lighthouse_score{category=\"performance\"}",
+          "legendFormat": "{{endpoint}}",
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"}
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Security Score",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "targets": [
+        {
+          "expr": "webmaster_security_score",
+          "legendFormat": "{{endpoint}}",
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"}
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Config Drift Incidents",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "targets": [
+        {
+          "expr": "rate(webmaster_drift_detected_total[5m])",
+          "legendFormat": "{{endpoint}}",
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"}
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Analysis Duration (P95)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(webmaster_analysis_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P95",
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "prometheus"}
+        }
+      ]
+    }
+  ]
+}

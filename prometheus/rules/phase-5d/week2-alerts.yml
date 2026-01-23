@@ -1,0 +1,372 @@
+# Phase 5D Week 2 Alert Rules - News Feed Engine, Gateway API, Super Admin API
+# Total: 32 alerts (News Feed: 13, Gateway: 10, SuperAdmin: 9)
+# Generated: 2025-12-16
+# Format: Prometheus alert_expr + labels + annotations
+
+groups:
+  - name: phase-5d-week2-news-feed-engine
+    interval: 30s
+    rules:
+      # News Feed Engine - 13 alerts
+      - alert: NewsFeed_Service_Down
+        expr: up{job="news-feed-engine"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed Engine service is down"
+          description: "Service unavailable for >1 minute. Check pod status and logs."
+          runbook_url: "https://dev.elevatediq.ai/docs/runbooks/phase-5d/news-feed-recovery.md"
+
+      - alert: NewsFeed_High_Response_Time
+        expr: histogram_quantile(0.95, rate(news_feed_request_duration_seconds_bucket[5m])) > 2.5
+        for: 5m
+        labels:
+          severity: warning
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed Engine response time exceeds 2.5s (P95)"
+          description: "P95 latency: {{ $value }}s. Check ingestion pipeline and database queries."
+
+      - alert: NewsFeed_High_Error_Rate
+        expr: rate(news_feed_errors_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed Engine error rate >5%"
+          description: "Error rate: {{ $value | humanizePercentage }}. Check ingestion failures and API errors."
+
+      - alert: NewsFeed_Ingestion_Lag
+        expr: news_feed_ingestion_lag_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed ingestion lag >5 minutes"
+          description: "Lag: {{ $value }}s. Check content source connectivity and Kafka consumer."
+
+      - alert: NewsFeed_Video_Generation_Failed
+        expr: rate(news_feed_video_generation_failures_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed video generation failing (>10% rate)"
+          description: "Failure rate: {{ $value | humanizePercentage }}. Check ElevenLabs and D-ID API quotas."
+
+      - alert: NewsFeed_Kafka_Consumer_Lag
+        expr: kafka_consumer_lag{job="news-feed-engine"} > 10000
+        for: 5m
+        labels:
+          severity: warning
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed Kafka consumer lag >10k messages"
+          description: "Lag: {{ $value }} messages. Check consumer group health and parallelism."
+
+      - alert: NewsFeed_MongoDB_Connection_Failed
+        expr: increase(news_feed_mongodb_connection_errors_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed MongoDB connection failures"
+          description: "Cannot connect to content storage. Check MongoDB replica set and network."
+
+      - alert: NewsFeed_Memory_Usage_High
+        expr: container_memory_usage_bytes{pod=~"news-feed-engine-.*"} / container_spec_memory_limit_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed Engine memory usage >85%"
+          description: "Memory: {{ $value | humanizePercentage }}. Check for memory leaks in video pipeline."
+
+      - alert: NewsFeed_CPU_Usage_High
+        expr: rate(container_cpu_usage_seconds_total{pod=~"news-feed-engine-.*"}[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed Engine CPU usage >80%"
+          description: "CPU: {{ $value | humanizePercentage }}. Consider horizontal scaling."
+
+      - alert: NewsFeed_External_API_Rate_Limit
+        expr: rate(news_feed_api_rate_limit_exceeded_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed hitting external API rate limits"
+          description: "Rate limited by content provider APIs. Check quota usage."
+
+      - alert: NewsFeed_Content_Quality_Score_Low
+        expr: news_feed_content_quality_score < 0.7
+        for: 15m
+        labels:
+          severity: info
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed content quality score <0.7"
+          description: "Quality: {{ $value }}. Review ML model predictions and training data."
+
+      - alert: NewsFeed_Publishing_Failure
+        expr: increase(news_feed_publishing_failures_total[5m]) > 5
+        for: 3m
+        labels:
+          severity: warning
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed publishing to platforms failing"
+          description: "Failures: {{ $value }}. Check OAuth tokens and social media API status."
+
+      - alert: NewsFeed_Trend_Detection_Lag
+        expr: time() - news_feed_last_trend_analysis_timestamp > 3600
+        for: 5m
+        labels:
+          severity: info
+          service: news-feed-engine
+          phase: 5d-week2
+        annotations:
+          summary: "News Feed trend detection running >1 hour behind"
+          description: "Last analysis: {{ $value | humanizeDuration }} ago. Check ML pipeline performance."
+
+  - name: phase-5d-week2-gateway-api
+    interval: 30s
+    rules:
+      # Gateway API - 10 alerts
+      - alert: Gateway_Service_Down
+        expr: up{job="gateway-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: gateway-api
+          phase: 5d-week2
+        annotations:
+          summary: "API Gateway service is down"
+          description: "All upstream services blocked. Immediate action required."
+          runbook_url: "https://dev.elevatediq.ai/docs/runbooks/phase-5d/gateway-recovery.md"
+
+      - alert: Gateway_High_Response_Time
+        expr: histogram_quantile(0.95, rate(gateway_request_duration_seconds_bucket[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          service: gateway-api
+          phase: 5d-week2
+        annotations:
+          summary: "Gateway API response time exceeds 1.0s (P95)"
+          description: "P95 latency: {{ $value }}s. Check downstream service health and rate limiting."
+
+      - alert: Gateway_High_Error_Rate
+        expr: rate(gateway_errors_total[5m]) > 0.02
+        for: 3m
+        labels:
+          severity: critical
+          service: gateway-api
+          phase: 5d-week2
+        annotations:
+          summary: "Gateway API error rate >2%"
+          description: "Error rate: {{ $value | humanizePercentage }}. Check downstream services."
+
+      - alert: Gateway_Circuit_Breaker_Open
+        expr: increase(gateway_circuit_breaker_open_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: gateway-api
+          phase: 5d-week2
+        annotations:
+          summary: "Gateway circuit breaker opened for downstream service"
+          description: "Service temporarily unavailable due to circuit breaker. Auto-recovery in progress."
+
+      - alert: Gateway_Rate_Limit_Exhausted
+        expr: rate(gateway_rate_limit_exceeded_total[5m]) > 100
+        for: 2m
+        labels:
+          severity: warning
+          service: gateway-api
+          phase: 5d-week2
+        annotations:
+          summary: "Gateway rate limit exceeded >100 req/s"
+          description: "Rate: {{ $value }} req/s. Check for DDoS or unusual traffic patterns."
+
+      - alert: Gateway_Downstream_Service_Unavailable
+        expr: increase(gateway_downstream_unavailable_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: gateway-api
+          phase: 5d-week2
+        annotations:
+          summary: "Gateway cannot reach downstream service"
+          description: "One or more backend services unreachable. Check service status and network."
+
+      - alert: Gateway_Redis_Cache_Miss_Rate_High
+        expr: rate(gateway_cache_miss_total[5m]) / rate(gateway_cache_requests_total[5m]) > 0.4
+        for: 5m
+        labels:
+          severity: info
+          service: gateway-api
+          phase: 5d-week2
+        annotations:
+          summary: "Gateway cache miss rate >40%"
+          description: "Miss rate: {{ $value | humanizePercentage }}. Consider cache TTL adjustment."
+
+      - alert: Gateway_Memory_Usage_High
+        expr: container_memory_usage_bytes{pod=~"gateway-api-.*"} / container_spec_memory_limit_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: gateway-api
+          phase: 5d-week2
+        annotations:
+          summary: "Gateway API memory usage >85%"
+          description: "Memory: {{ $value | humanizePercentage }}. Check connection pool and cache size."
+
+      - alert: Gateway_Connection_Pool_Exhausted
+        expr: gateway_connection_pool_available == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: gateway-api
+          phase: 5d-week2
+        annotations:
+          summary: "Gateway connection pool fully exhausted"
+          description: "No available connections to downstream services. Scale up or investigate slow requests."
+
+      - alert: Gateway_TLS_Certificate_Expiring
+        expr: (gateway_tls_cert_expiry_seconds - time()) / 86400 < 7
+        for: 1h
+        labels:
+          severity: warning
+          service: gateway-api
+          phase: 5d-week2
+        annotations:
+          summary: "Gateway TLS certificate expiring in <7 days"
+          description: "Days until expiry: {{ $value }}. Renew certificate immediately."
+
+  - name: phase-5d-week2-super-admin-api
+    interval: 30s
+    rules:
+      # Super Admin API - 9 alerts
+      - alert: SuperAdmin_Service_Down
+        expr: up{job="super-admin-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: super-admin-api
+          phase: 5d-week2
+        annotations:
+          summary: "Super Admin API service is down"
+          description: "Admin operations blocked. Requires immediate attention."
+          runbook_url: "https://dev.elevatediq.ai/docs/runbooks/phase-5d/super-admin-recovery.md"
+
+      - alert: SuperAdmin_High_Response_Time
+        expr: histogram_quantile(0.95, rate(super_admin_request_duration_seconds_bucket[5m])) > 1.5
+        for: 5m
+        labels:
+          severity: warning
+          service: super-admin-api
+          phase: 5d-week2
+        annotations:
+          summary: "Super Admin API response time exceeds 1.5s (P95)"
+          description: "P95 latency: {{ $value }}s. Check database query performance."
+
+      - alert: SuperAdmin_High_Error_Rate
+        expr: rate(super_admin_errors_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+          service: super-admin-api
+          phase: 5d-week2
+        annotations:
+          summary: "Super Admin API error rate >5%"
+          description: "Error rate: {{ $value | humanizePercentage }}. Review audit logs for failures."
+
+      - alert: SuperAdmin_Database_Connection_Failed
+        expr: increase(super_admin_db_connection_errors_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: super-admin-api
+          phase: 5d-week2
+        annotations:
+          summary: "Super Admin database connection failures"
+          description: "Cannot reach PostgreSQL. Check database availability and credentials."
+
+      - alert: SuperAdmin_Billing_Sync_Failed
+        expr: increase(super_admin_billing_sync_failures_total[5m]) > 0
+        for: 3m
+        labels:
+          severity: warning
+          service: super-admin-api
+          phase: 5d-week2
+        annotations:
+          summary: "Super Admin Stripe billing sync failing"
+          description: "Cannot sync billing data with Stripe. Check API key and quota."
+
+      - alert: SuperAdmin_Slow_Tenant_Queries
+        expr: histogram_quantile(0.99, rate(super_admin_tenant_query_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: super-admin-api
+          phase: 5d-week2
+        annotations:
+          summary: "Super Admin tenant queries >5s (P99)"
+          description: "P99 latency: {{ $value }}s. Check database indexes and query plans."
+
+      - alert: SuperAdmin_Feature_Flag_Cache_Stale
+        expr: time() - super_admin_feature_flags_last_update_timestamp > 600
+        for: 5m
+        labels:
+          severity: info
+          service: super-admin-api
+          phase: 5d-week2
+        annotations:
+          summary: "Super Admin feature flag cache >10 min stale"
+          description: "Last update: {{ $value | humanizeDuration }} ago. Cache refresh issue."
+
+      - alert: SuperAdmin_Audit_Log_Lag
+        expr: super_admin_audit_log_lag_seconds > 60
+        for: 5m
+        labels:
+          severity: info
+          service: super-admin-api
+          phase: 5d-week2
+        annotations:
+          summary: "Super Admin audit logging >1 min behind"
+          description: "Lag: {{ $value }}s. Consider increasing batch size or storage throughput."
+
+      - alert: SuperAdmin_RBAC_Permission_Denied
+        expr: increase(super_admin_permission_denied_total[5m]) > 10
+        for: 3m
+        labels:
+          severity: warning
+          service: super-admin-api
+          phase: 5d-week2
+        annotations:
+          summary: "Super Admin RBAC permission denials >10/5m"
+          description: "Denials: {{ $value }}. Potential unauthorized access attempts."

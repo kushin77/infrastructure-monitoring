@@ -1,0 +1,139 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    cluster: 'elevatediq'
+    environment: 'development'
+    job: 'prometheus'
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load rules files
+rule_files:
+  - '/etc/prometheus/rules/*.yml'
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Phase 3 Infrastructure Services
+
+  # Metrics Server - Real-time metrics collection (Port 9091)
+  - job_name: 'metrics-server'
+    static_configs:
+      - targets: ['metrics-server:9091']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    honor_timestamps: true
+
+  # Instance Status Server - EC2/K8s instance monitoring (Port 8001)
+  - job_name: 'instance-status-server'
+    static_configs:
+      - targets: ['instance-status-server:8001']
+    metrics_path: '/metrics'
+    scrape_interval: 60s
+    scrape_timeout: 10s
+
+  # Security Agent - Compliance and security auditing (Port 8002)
+  - job_name: 'security-agent'
+    static_configs:
+      - targets: ['security-agent:8002']
+    metrics_path: '/metrics'
+    scrape_interval: 60s
+    scrape_timeout: 10s
+
+  # Deadletter UI - Message queue management (Port 5000)
+  - job_name: 'deadletter-ui'
+    static_configs:
+      - targets: ['deadletter-ui:5000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Wake Server - Server lifecycle management (Port 8003)
+  - job_name: 'wake-server'
+    static_configs:
+      - targets: ['wake-server:8003']
+    metrics_path: '/metrics'
+    scrape_interval: 60s
+    scrape_timeout: 10s
+
+  # Gateway API - API Gateway with circuit breaker (Phase 6, Port 8095)
+  - job_name: 'gateway-api'
+    static_configs:
+      - targets: ['gateway-api:8095']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Host Metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Legacy Services (if still in use)
+
+  - job_name: 'odoo'
+    static_configs:
+      - targets: ['odoo:8069']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'nextcloud'
+    static_configs:
+      - targets: ['nextcloud:80']
+    metrics_path: '/ocs/v2.php/apps/serverinfo/api/v1/info'
+    params:
+      format: ['json']
+    scrape_interval: 30s
+
+  - job_name: 'n8n'
+    static_configs:
+      - targets: ['n8n:5678']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
+
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # GPU Monitoring (DCGM Exporter)
+  - job_name: 'gpu-exporter'
+    static_configs:
+      - targets: ['192.168.168.42:9835']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # DEFRAG Autonomous Platform - Feature Flags and Core service (Port 8092)
+  - job_name: 'defrag-suite'
+    static_configs:
+      - targets: ['192.168.168.42:8092']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
